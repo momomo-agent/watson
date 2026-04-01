@@ -98,10 +98,9 @@ export class ToolRunner {
       return { success: false, error: error.message }
     }
   }
-}
+
   private static async search(input: any, options: any): Promise<ToolResult> {
     try {
-      // 简单实现：使用 DuckDuckGo
       const query = encodeURIComponent(input.query)
       return { 
         success: true, 
@@ -113,16 +112,14 @@ export class ToolRunner {
   }
 
   private static async codeExec(input: any, options: any): Promise<ToolResult> {
-    // 代码执行（安全沙箱）
     return this.shellExec({ command: input.code }, options)
   }
 
   private static async uiStatusSet(input: any): Promise<ToolResult> {
-    // UI 状态更新（通过 IPC）
     return { success: true, output: `Status set: ${input.status}` }
   }
 
   private static async skillExec(input: any, options: any): Promise<ToolResult> {
-    // Skill 执行
     return { success: true, output: `Skill ${input.skill} executed` }
   }
+}
