@@ -1,0 +1,23 @@
+{
+  "name": "watson",
+  "version": "0.1.0",
+  "description": "AI workspace built with Vue3 + Electron",
+  "main": "dist-electron/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview"
+  },
+  "keywords": ["electron", "vue", "ai", "workspace"],
+  "author": "kenefe",
+  "license": "MIT",
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.5",
+    "electron": "^41.1.0",
+    "electron-vite": "^5.0.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3",
+    "vue": "^3.5.31"
+  }
+}

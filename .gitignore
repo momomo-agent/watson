@@ -1,0 +1,6 @@
+node_modules/
+dist-electron/
+.DS_Store
+*.log
+.watson/
+.env
