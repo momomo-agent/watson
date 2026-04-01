@@ -25,8 +25,9 @@ const statusText = computed(() => {
 </script>
 
 <template>
-  <div class="status-indicator" :title="statusText">
+  <div class="status-indicator">
     <div class="dot" :style="{ backgroundColor: statusColor }"></div>
+    <div class="tooltip">{{ statusText }}</div>
   </div>
 </template>
 
@@ -42,10 +43,31 @@ const statusText = computed(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  transition: background-color 0.3s;
+  transition: all 0.2s;
+  cursor: pointer;
 }
 
-.dot:hover {
+.tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: #2a2a2a;
+  color: #f0f0f0;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.status-indicator:hover .dot {
   transform: scale(1.5);
+}
+
+.status-indicator:hover .tooltip {
+  opacity: 1;
 }
 </style>
