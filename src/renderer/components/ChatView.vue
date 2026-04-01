@@ -63,7 +63,7 @@ const handleSend = async (text: string) => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #1a1a1a;
+  background: #0a0a0a;
 }
 
 .messages {

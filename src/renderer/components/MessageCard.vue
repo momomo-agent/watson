@@ -47,7 +47,8 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
   padding: 0.75rem 1rem;
   margin-bottom: 0.75rem;
   border-radius: 8px;
-  background: #252525;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
 }
 
 .message-card.user {
