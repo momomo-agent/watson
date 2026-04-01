@@ -14,6 +14,11 @@ export interface Message {
   timestamp: number
   status: 'pending' | 'streaming' | 'complete' | 'error' | 'cancelled'
   error?: string
+  toolCalls?: Array<{
+    name: string
+    input: any
+    status: 'running' | 'complete' | 'error'
+  }>
 }
 
 export function useChatSession(sessionId: string) {

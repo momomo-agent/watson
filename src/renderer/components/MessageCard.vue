@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Message } from '../composables/useChatSession'
+import { translateToolCall } from '../utils/tool-translator'
 
 const props = defineProps<{
   message: Message
@@ -12,6 +13,7 @@ const emit = defineEmits<{
 
 const canCancel = () => ['streaming', 'pending'].includes(props.message.status)
 const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
+
 </script>
 
 <template>
@@ -19,6 +21,14 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
     <div class="role-label">{{ message.role === 'user' ? 'You' : 'Watson' }}</div>
 
     <div class="content" v-if="message.content">{{ message.content }}</div>
+
+    <!-- 工具调用显示 -->
+    <div v-if="message.toolCalls && message.toolCalls.length > 0" class="tool-calls">
+      <div v-for="(tool, idx) in message.toolCalls" :key="idx" class="tool-call">
+        <span class="tool-icon">🔧</span>
+        <span class="tool-text">{{ translateToolCall(tool.name, tool.input) }}</span>
+      </div>
+    </div>
 
     <div class="status-bar">
       <!-- 只在 streaming/pending 时显示详细状态 -->
@@ -72,6 +82,32 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.5;
+}
+
+.tool-calls {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tool-call {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  background: #0a0a0a;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.tool-icon {
+  font-size: 0.9rem;
+}
+
+.tool-text {
+  flex: 1;
 }
 
 .status-bar {
