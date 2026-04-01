@@ -2,11 +2,10 @@
  * ChatSession — Domain Layer
  * 
  * Manages a single conversation: message history, streaming, cancel, retry.
- * Delegates LLM calls to infrastructure layer (EnhancedLLMClient).
+ * Uses dependency injection for LLM calls (no direct Infrastructure imports).
  */
 
 import { EventEmitter } from 'events'
-import { loadConfig } from '../infrastructure/config'
 
 export interface Message {
   id: string
@@ -17,16 +16,28 @@ export interface Message {
   error?: string
 }
 
+export interface StreamChunk {
+  type: 'text' | 'tool_use' | 'done'
+  text?: string
+}
+
+export type LLMStreamFn = (
+  messages: Array<{ role: string; content: string }>,
+  signal: AbortSignal
+) => AsyncGenerator<StreamChunk>
+
 export class ChatSession extends EventEmitter {
   id: string
   workspacePath: string
   messages: Message[] = []
   private activeRequests = new Map<string, AbortController>()
+  private llmStream: LLMStreamFn
 
-  constructor(id: string, workspacePath: string = process.cwd()) {
+  constructor(id: string, workspacePath: string, llmStream: LLMStreamFn) {
     super()
     this.id = id
     this.workspacePath = workspacePath
+    this.llmStream = llmStream
   }
 
   async sendMessage(text: string): Promise<string> {
@@ -96,22 +107,8 @@ export class ChatSession extends EventEmitter {
       message.status = 'streaming'
       this.emit('update')
 
-      // Load config (infrastructure layer)
-      const config = loadConfig(this.workspacePath)
-
-      // Build message history for LLM
       const history = this.getHistory()
-
-      // Call LLMClient via EnhancedLLMClient (infrastructure layer)
-      const { EnhancedLLMClient } = await import('../infrastructure/enhanced-llm-client')
-      const stream = EnhancedLLMClient.streamChatWithRetry({
-        messages: history,
-        signal: controller.signal,
-        provider: config.provider,
-        apiKey: config.apiKey,
-        baseUrl: config.baseUrl,
-        model: config.model,
-      }, 2)
+      const stream = this.llmStream(history, controller.signal)
 
       for await (const chunk of stream) {
         if (controller.signal.aborted) break

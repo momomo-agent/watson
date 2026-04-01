@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
-import { registerChatHandlers } from './ipc/chat-handlers'
+import { registerChatHandlers } from './application/chat-handlers'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -9,7 +9,7 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -17,7 +17,10 @@ function createWindow() {
 
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
-    mainWindow.webContents.openDevTools()
+    // DevTools 只在 WATSON_DEVTOOLS=1 时打开
+    if (process.env.WATSON_DEVTOOLS === '1') {
+      mainWindow.webContents.openDevTools()
+    }
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }

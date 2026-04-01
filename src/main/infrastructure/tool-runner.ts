@@ -10,7 +10,24 @@ export interface ToolResult {
 }
 
 export class ToolRunner {
+  private static readonly TIMEOUT_MS = 30000 // 30 seconds
+
   static async execute(tool: ToolCall, options: { signal: AbortSignal, workspacePath: string }): Promise<ToolResult> {
+    const timeoutPromise = new Promise<ToolResult>((_, reject) => 
+      setTimeout(() => reject(new Error(`Tool ${tool.name} timed out after ${this.TIMEOUT_MS}ms`)), this.TIMEOUT_MS)
+    )
+
+    try {
+      return await Promise.race([
+        this.executeInternal(tool, options),
+        timeoutPromise
+      ])
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  private static async executeInternal(tool: ToolCall, options: { signal: AbortSignal, workspacePath: string }): Promise<ToolResult> {
     switch (tool.name) {
       case 'file_read':
         return this.fileRead(tool.input, options)

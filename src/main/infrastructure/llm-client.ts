@@ -21,11 +21,19 @@ export interface LLMOptions {
   system?: string
 }
 
-// Load agentic-core (UMD module)
+// Load agentic-core
+// Try npm dependency first, then local path as fallback
 let _agenticCore: any = null
 function getAgenticCore() {
   if (!_agenticCore) {
-    _agenticCore = require('/Users/kenefe/LOCAL/momo-agent/projects/agentic-core/agentic-core.js')
+    try {
+      _agenticCore = require('agentic-core')
+    } catch {
+      // Fallback: try local development path
+      const { join } = require('path')
+      const localPath = join(process.env.HOME || '', 'LOCAL/momo-agent/projects/agentic-core/agentic-core.js')
+      _agenticCore = require(localPath)
+    }
   }
   return _agenticCore
 }
