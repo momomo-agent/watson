@@ -90,16 +90,16 @@ export class ChatSession extends EventEmitter {
       // 加载配置
       const config = loadConfig(this.workspacePath)
       
-      // 调用 LLMClient
-      const { LLMClient } = await import('../infrastructure/llm-client')
-      const stream = LLMClient.streamChat({
+      // 调用增强的 LLMClient（带 failover 和 retry）
+      const { EnhancedLLMClient } = await import('../infrastructure/enhanced-llm-client')
+      const stream = EnhancedLLMClient.streamChatWithRetry({
         messages: this.getHistory(),
         signal: controller.signal,
         provider: config.provider,
         apiKey: config.apiKey,
         baseUrl: config.baseUrl,
         model: config.model,
-      })
+      }, 3)
 
       for await (const chunk of stream) {
         if (chunk.type === 'text' && chunk.text) {
