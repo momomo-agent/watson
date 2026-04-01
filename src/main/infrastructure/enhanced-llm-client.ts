@@ -1,3 +1,10 @@
+/**
+ * EnhancedLLMClient — Infrastructure Layer
+ * 
+ * Adds retry and failover on top of LLMClient.
+ * Keeps the same streaming interface.
+ */
+
 import { LLMClient, type LLMOptions, type StreamChunk } from './llm-client'
 
 export interface ProviderConfig {
@@ -11,7 +18,7 @@ export class EnhancedLLMClient {
   static async *streamChatWithFailover(
     options: LLMOptions,
     fallbackConfigs: ProviderConfig[] = []
-  ): AsyncIterator<StreamChunk> {
+  ): AsyncGenerator<StreamChunk> {
     const configs = [
       { provider: options.provider!, apiKey: options.apiKey!, baseUrl: options.baseUrl, model: options.model },
       ...fallbackConfigs
@@ -37,7 +44,7 @@ export class EnhancedLLMClient {
   static async *streamChatWithRetry(
     options: LLMOptions,
     maxRetries: number = 3
-  ): AsyncIterator<StreamChunk> {
+  ): AsyncGenerator<StreamChunk> {
     let lastError: Error | null = null
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -46,9 +53,12 @@ export class EnhancedLLMClient {
         return
       } catch (error: any) {
         lastError = error
-        
+
+        // Don't retry aborted requests
+        if (options.signal.aborted) throw error
+
         if (this.isRateLimitError(error)) {
-          const waitTime = this.getRetryAfter(error) || Math.pow(2, attempt) * 1000
+          const waitTime = Math.pow(2, attempt) * 1000
           await this.sleep(waitTime)
         } else if (attempt < maxRetries - 1) {
           await this.sleep(Math.pow(2, attempt) * 1000)
@@ -61,11 +71,6 @@ export class EnhancedLLMClient {
 
   private static isRateLimitError(error: any): boolean {
     return error.message?.includes('429') || error.message?.includes('rate limit')
-  }
-
-  private static getRetryAfter(error: any): number | null {
-    // 从错误信息中提取 retry-after
-    return null
   }
 
   private static sleep(ms: number): Promise<void> {

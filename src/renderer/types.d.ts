@@ -1,7 +1,7 @@
 export interface IElectronAPI {
   invoke: (channel: string, data?: any) => Promise<any>
-  on: (channel: string, callback: Function) => () => void
-  off: (channel: string, callback: Function) => void
+  on: (channel: string, callback: (...args: any[]) => void) => () => void
+  off: (channel: string, callback: (...args: any[]) => void) => void
 }
 
 declare global {

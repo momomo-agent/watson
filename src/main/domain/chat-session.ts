@@ -1,3 +1,10 @@
+/**
+ * ChatSession — Domain Layer
+ * 
+ * Manages a single conversation: message history, streaming, cancel, retry.
+ * Delegates LLM calls to infrastructure layer (EnhancedLLMClient).
+ */
+
 import { EventEmitter } from 'events'
 import { loadConfig } from '../infrastructure/config'
 
@@ -23,7 +30,7 @@ export class ChatSession extends EventEmitter {
   }
 
   async sendMessage(text: string): Promise<string> {
-    // 创建 user message
+    // Create user message
     const userMsg: Message = {
       id: this.generateId(),
       role: 'user',
@@ -34,7 +41,7 @@ export class ChatSession extends EventEmitter {
     this.messages.push(userMsg)
     this.emit('update')
 
-    // 创建 assistant message
+    // Create assistant message placeholder
     const assistantMsg: Message = {
       id: this.generateId(),
       role: 'assistant',
@@ -45,7 +52,7 @@ export class ChatSession extends EventEmitter {
     this.messages.push(assistantMsg)
     this.emit('update')
 
-    // 执行请求
+    // Execute the request (streaming)
     await this.executeRequest(assistantMsg)
 
     return assistantMsg.id
@@ -62,9 +69,11 @@ export class ChatSession extends EventEmitter {
     const failedMsg = this.messages.find(m => m.id === messageId)
     if (!failedMsg) throw new Error('Message not found')
 
+    // Mark old message as cancelled
     failedMsg.status = 'cancelled'
     this.emit('update')
 
+    // Create new assistant message
     const newMsg: Message = {
       id: this.generateId(),
       role: 'assistant',
@@ -87,42 +96,60 @@ export class ChatSession extends EventEmitter {
       message.status = 'streaming'
       this.emit('update')
 
-      // 加载配置
+      // Load config (infrastructure layer)
       const config = loadConfig(this.workspacePath)
-      
-      // 调用增强的 LLMClient（带 failover 和 retry）
+
+      // Build message history for LLM
+      const history = this.getHistory()
+
+      // Call LLMClient via EnhancedLLMClient (infrastructure layer)
       const { EnhancedLLMClient } = await import('../infrastructure/enhanced-llm-client')
       const stream = EnhancedLLMClient.streamChatWithRetry({
-        messages: this.getHistory(),
+        messages: history,
         signal: controller.signal,
         provider: config.provider,
         apiKey: config.apiKey,
         baseUrl: config.baseUrl,
         model: config.model,
-      }, 3)
+      }, 2)
 
       for await (const chunk of stream) {
+        if (controller.signal.aborted) break
+
         if (chunk.type === 'text' && chunk.text) {
           message.content += chunk.text
           this.emit('update')
         }
       }
 
-      message.status = 'complete'
-      this.emit('update')
+      if (!controller.signal.aborted) {
+        message.status = 'complete'
+        this.emit('update')
+      }
 
     } catch (error: any) {
       if (controller.signal.aborted) {
         message.status = 'cancelled'
+        message.content = message.content || '(cancelled)'
       } else {
         message.status = 'error'
-        message.error = error.message
+        message.error = error.message || 'Unknown error'
       }
       this.emit('update')
 
     } finally {
       this.activeRequests.delete(message.id)
     }
+  }
+
+  /**
+   * Build conversation history for LLM calls.
+   * Only includes complete messages (not pending/error/cancelled).
+   */
+  private getHistory(): Array<{ role: string; content: string }> {
+    return this.messages
+      .filter(m => m.status === 'complete' && m.content)
+      .map(m => ({ role: m.role, content: m.content }))
   }
 
   private generateId(): string {
