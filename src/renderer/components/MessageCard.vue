@@ -21,15 +21,18 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
     <div class="content" v-if="message.content">{{ message.content }}</div>
 
     <div class="status-bar">
+      <!-- 只在 streaming/pending 时显示详细状态 -->
       <span v-if="message.status === 'pending'" class="status pending">
         <span class="dot-pulse"></span> Thinking...
       </span>
       <span v-else-if="message.status === 'streaming'" class="status streaming">
-        <span class="dot-pulse"></span> Streaming...
+        <span class="dot-pulse"></span>
       </span>
+      <!-- 完成后只显示 ✓ -->
       <span v-else-if="message.status === 'complete'" class="status complete">✓</span>
+      <!-- 错误时显示详细信息 -->
       <span v-else-if="message.status === 'error'" class="status error">✗ {{ message.error }}</span>
-      <span v-else-if="message.status === 'cancelled'" class="status cancelled">⊘ Cancelled</span>
+      <span v-else-if="message.status === 'cancelled'" class="status cancelled">⊘</span>
 
       <div class="actions" v-if="canCancel() || canRetry()">
         <button v-if="canCancel()" @click="emit('cancel')" class="btn-cancel">Cancel</button>
