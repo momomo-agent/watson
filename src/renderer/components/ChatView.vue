@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import { useChatSession } from '../composables/useChatSession'
 import MessageCard from './MessageCard.vue'
 import ChatInput from './ChatInput.vue'
+import StatusIndicator from './StatusIndicator.vue'
 
 const { messages, isLoading, error, sendMessage, cancel, retry } = useChatSession('main')
 const messagesContainer = ref<HTMLElement | null>(null)
+
+const appStatus = computed(() => {
+  if (error.value) return 'error'
+  if (isLoading.value) return 'thinking'
+  if (messages.value.length > 0) return 'complete'
+  return 'idle'
+})
 
 // Auto-scroll to bottom when messages update
 watch(messages, async () => {
@@ -45,6 +53,8 @@ const handleSend = async (text: string) => {
       :disabled="isLoading"
       @send="handleSend"
     />
+
+    <StatusIndicator :status="appStatus" />
   </div>
 </template>
 
