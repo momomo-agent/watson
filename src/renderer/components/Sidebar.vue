@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useWorkspace } from '../composables/useWorkspace'
+import SettingsPanel from './SettingsPanel.vue'
 
 const { currentWorkspace, workspaces, switchWorkspace, createWorkspace, deleteWorkspace } = useWorkspace()
 const showCreateDialog = ref(false)
+const showSettings = ref(false)
 const newWorkspaceName = ref('')
 const newWorkspacePath = ref('')
 
@@ -54,6 +56,10 @@ const handleDelete = async (id: string, event: Event) => {
       </div>
     </div>
 
+    <div class="sidebar-footer">
+      <button @click="showSettings = true" class="settings-btn">⚙ Settings</button>
+    </div>
+
     <div v-if="showCreateDialog" class="dialog-overlay" @click="showCreateDialog = false">
       <div class="dialog" @click.stop>
         <h3>New Workspace</h3>
@@ -65,6 +71,8 @@ const handleDelete = async (id: string, event: Event) => {
         </div>
       </div>
     </div>
+
+    <SettingsPanel v-if="showSettings" @close="showSettings = false" />
   </div>
 </template>
 
@@ -188,6 +196,32 @@ const handleDelete = async (id: string, event: Event) => {
 .delete-btn:hover {
   background: #3a1a1a;
   color: #ff6b6b;
+}
+
+.sidebar-footer {
+  padding: 1rem;
+  border-top: 1px solid #2a2a2a;
+}
+
+.settings-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  color: #888;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.settings-btn:hover {
+  background: #2a2a2a;
+  color: #e0e0e0;
 }
 
 .dialog-overlay {

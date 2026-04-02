@@ -40,7 +40,10 @@ contextBridge.exposeInMainWorld('api', {
         channelListeners.delete(callback)
       }
     }
-  }
+  },
+
+  loadConfig: () => ipcRenderer.invoke('settings:load'),
+  saveConfig: (config: any) => ipcRenderer.invoke('settings:save', config)
 })
 
 // Alias for compatibility
