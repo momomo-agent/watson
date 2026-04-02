@@ -11,10 +11,12 @@ import { WorkspaceManager } from './domain/workspace-manager'
 import { McpManager } from './infrastructure/mcp-manager'
 import { ToolRunner } from './infrastructure/tool-runner'
 import { loadConfig } from './infrastructure/config'
+import { SkillManager } from './domain/skill-manager'
 
 let mainWindow: BrowserWindow | null = null
 const workspaceManager = new WorkspaceManager()
 const mcpManager = new McpManager()
+let skillManager: SkillManager | null = null
 let heartbeat: HeartbeatScheduler | null = null
 let cron: CronScheduler | null = null
 
@@ -48,6 +50,10 @@ function createWindow() {
   
   // 设置 MCP 管理器到 ToolRunner
   ToolRunner.setMcpManager(mcpManager)
+  
+  // 初始化 SkillManager
+  skillManager = new SkillManager(currentWorkspace)
+  ToolRunner.setSkillManager(skillManager)
   
   // 启动调度器和 MCP
   const currentWorkspace = workspaceManager.getCurrentWorkspace()

@@ -87,5 +87,47 @@ export const BUILTIN_TOOLS = [
       },
       required: ['task']
     }
+  },
+  {
+    name: 'skill_list',
+    description: 'List all available skills.',
+    input_schema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'skill_info',
+    description: 'Get detailed information about a skill.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Skill name' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'skill_install',
+    description: 'Install dependencies for a skill.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Skill name' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'skill_exec',
+    description: 'Execute a skill script.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Skill name' },
+        args: { type: 'array', items: { type: 'string' }, description: 'Arguments' }
+      },
+      required: ['name']
+    }
   }
 ]

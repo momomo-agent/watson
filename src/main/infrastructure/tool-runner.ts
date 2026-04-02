@@ -1,4 +1,5 @@
 import { McpManager } from './mcp-manager'
+import { SkillManager } from '../domain/skill-manager'
 
 export interface ToolCall {
   name: string
@@ -14,9 +15,14 @@ export interface ToolResult {
 export class ToolRunner {
   private static readonly TIMEOUT_MS = 30000 // 30 seconds
   private static mcpManager: McpManager | null = null
+  private static skillManager: SkillManager | null = null
 
   static setMcpManager(manager: McpManager) {
     this.mcpManager = manager
+  }
+
+  static setSkillManager(manager: SkillManager) {
+    this.skillManager = manager
   }
 
   static async execute(tool: ToolCall, options: { signal: AbortSignal, workspacePath: string }): Promise<ToolResult> {
@@ -62,6 +68,12 @@ export class ToolRunner {
         return this.uiStatusSet(tool.input)
       case 'skill_exec':
         return this.skillExec(tool.input, options)
+      case 'skill_list':
+        return this.skillList(tool.input, options)
+      case 'skill_info':
+        return this.skillInfo(tool.input, options)
+      case 'skill_install':
+        return this.skillInstall(tool.input, options)
       case 'screen_sense':
         return this.screenSense(tool.input)
       case 'coding_agent':
@@ -308,23 +320,53 @@ export class ToolRunner {
   }
 
   private static async skillExec(input: any, options: any): Promise<ToolResult> {
+    if (!this.skillManager) {
+      return { success: false, error: 'Skill manager not initialized' }
+    }
     try {
-      const { execSync } = await import('child_process')
-      const skill = input.skill
-      const args = input.args || []
-      
-      // 构建命令 - 直接传参数，不用引号包裹
-      const argsStr = args.join(' ')
-      const cmd = argsStr ? `${skill} ${argsStr}` : skill
-      
-      const output = execSync(cmd, {
-        cwd: options.workspacePath,
-        encoding: 'utf8',
-        timeout: input.timeout || 60000,
-        maxBuffer: 10 * 1024 * 1024,
-        env: process.env
-      })
-      
+      const output = await this.skillManager.execute(input.name, input.args || [])
+      return { success: true, output }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  private static async skillList(input: any, options: any): Promise<ToolResult> {
+    if (!this.skillManager) {
+      return { success: false, error: 'Skill manager not initialized' }
+    }
+    try {
+      const skills = this.skillManager.listSkills()
+      const output = skills.length === 0 
+        ? 'No skills found'
+        : skills.map(s => `${s.name}: ${s.description}`).join('\n')
+      return { success: true, output }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  private static async skillInfo(input: any, options: any): Promise<ToolResult> {
+    if (!this.skillManager) {
+      return { success: false, error: 'Skill manager not initialized' }
+    }
+    try {
+      const skill = this.skillManager.getSkill(input.name)
+      if (!skill) {
+        return { success: false, error: `Skill '${input.name}' not found` }
+      }
+      return { success: true, output: JSON.stringify(skill, null, 2) }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  private static async skillInstall(input: any, options: any): Promise<ToolResult> {
+    if (!this.skillManager) {
+      return { success: false, error: 'Skill manager not initialized' }
+    }
+    try {
+      const output = await this.skillManager.installDependencies(input.name)
       return { success: true, output }
     } catch (error: any) {
       return { success: false, error: error.message }

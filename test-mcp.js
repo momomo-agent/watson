@@ -5,7 +5,7 @@
  * Usage: node test-mcp.js
  */
 
-const { McpManager } = require('./dist-electron/main/infrastructure/mcp-manager.js')
+import { McpManager } from './dist-electron/main/infrastructure/mcp-manager.js'
 
 async function testMcp() {
   console.log('[Test] Starting MCP client test...\n')
