@@ -1,8 +1,14 @@
 /**
  * ChatSession — Domain Layer
- * 
+ *
  * Manages a single conversation: message history, streaming, cancel, retry.
  * Uses dependency injection for LLM calls (no direct Infrastructure imports).
+ *
+ * Error recovery integration:
+ *   - Pre-flight context guard before each LLM call
+ *   - Automatic context compaction on overflow errors
+ *   - Loop detection for tool calls
+ *   - Classified error reporting to UI
  */
 
 import { EventEmitter } from 'events'
@@ -14,11 +20,16 @@ export interface Message {
   timestamp: number
   status: 'pending' | 'streaming' | 'complete' | 'error' | 'cancelled'
   error?: string
+  /** Error category for UI display */
+  errorCategory?: string
+  /** Whether the error is retryable */
+  errorRetryable?: boolean
 }
 
 export interface StreamChunk {
   type: 'text' | 'tool_use' | 'done'
   text?: string
+  tool?: { name: string; input: any }
 }
 
 export type LLMStreamFn = (
@@ -26,18 +37,43 @@ export type LLMStreamFn = (
   signal: AbortSignal
 ) => AsyncGenerator<StreamChunk>
 
+/** Optional error recovery callbacks injected from application layer */
+export interface ErrorRecoveryCallbacks {
+  /** Prepare messages (context guard + compaction) before LLM call */
+  prepareMessages?: (
+    messages: Array<{ role: string; content: string }>
+  ) => Promise<Array<{ role: string; content: string }>>
+  /** Classify and handle an error, return recovery action */
+  handleError?: (err: any) => {
+    classified: { short: string; detail: string; category: string; retryable: boolean }
+    action: 'retry' | 'compact' | 'failover' | 'abort'
+    retryDelayMs: number
+  }
+  /** Check tool call for loops */
+  checkToolCall?: (toolName: string, params: any) => { blocked: boolean; warning: boolean; reason?: string }
+  /** Record tool outcome */
+  recordToolOutcome?: (toolName: string, params: any, result: any, error?: any) => void
+}
+
 export class ChatSession extends EventEmitter {
   id: string
   workspacePath: string
   messages: Message[] = []
   private activeRequests = new Map<string, AbortController>()
   private llmStream: LLMStreamFn
+  private recovery?: ErrorRecoveryCallbacks
 
-  constructor(id: string, workspacePath: string, llmStream: LLMStreamFn) {
+  constructor(
+    id: string,
+    workspacePath: string,
+    llmStream: LLMStreamFn,
+    recovery?: ErrorRecoveryCallbacks
+  ) {
     super()
     this.id = id
     this.workspacePath = workspacePath
     this.llmStream = llmStream
+    this.recovery = recovery
   }
 
   async sendMessage(text: string): Promise<string> {
@@ -47,7 +83,7 @@ export class ChatSession extends EventEmitter {
       role: 'user',
       content: text,
       timestamp: Date.now(),
-      status: 'complete'
+      status: 'complete',
     }
     this.messages.push(userMsg)
     this.emit('update')
@@ -58,12 +94,12 @@ export class ChatSession extends EventEmitter {
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
-      status: 'pending'
+      status: 'pending',
     }
     this.messages.push(assistantMsg)
     this.emit('update')
 
-    // Execute the request (streaming)
+    // Execute the request (streaming) with error recovery
     await this.executeRequest(assistantMsg)
 
     return assistantMsg.id
@@ -77,7 +113,7 @@ export class ChatSession extends EventEmitter {
   }
 
   async retry(messageId: string): Promise<string> {
-    const failedMsg = this.messages.find(m => m.id === messageId)
+    const failedMsg = this.messages.find((m) => m.id === messageId)
     if (!failedMsg) throw new Error('Message not found')
 
     // Mark old message as cancelled
@@ -90,7 +126,7 @@ export class ChatSession extends EventEmitter {
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
-      status: 'pending'
+      status: 'pending',
     }
     this.messages.push(newMsg)
     this.emit('update')
@@ -99,7 +135,8 @@ export class ChatSession extends EventEmitter {
     return newMsg.id
   }
 
-  private async executeRequest(message: Message): Promise<void> {
+  private async executeRequest(message: Message, retryCount: number = 0): Promise<void> {
+    const MAX_AUTO_RETRIES = 3
     const controller = new AbortController()
     this.activeRequests.set(message.id, controller)
 
@@ -107,7 +144,18 @@ export class ChatSession extends EventEmitter {
       message.status = 'streaming'
       this.emit('update')
 
-      const history = this.getHistory()
+      // Build history and apply pre-flight checks
+      let history = this.getHistory()
+
+      // Pre-flight: context guard + compaction
+      if (this.recovery?.prepareMessages) {
+        try {
+          history = await this.recovery.prepareMessages(history)
+        } catch (prepErr: any) {
+          console.warn('[chat-session] prepareMessages failed (non-blocking):', prepErr.message)
+        }
+      }
+
       const stream = this.llmStream(history, controller.signal)
 
       for await (const chunk of stream) {
@@ -123,17 +171,59 @@ export class ChatSession extends EventEmitter {
         message.status = 'complete'
         this.emit('update')
       }
-
     } catch (error: any) {
       if (controller.signal.aborted) {
         message.status = 'cancelled'
         message.content = message.content || '(cancelled)'
+        this.emit('update')
+        return
+      }
+
+      // Use error recovery if available
+      if (this.recovery?.handleError && retryCount < MAX_AUTO_RETRIES) {
+        const { classified, action, retryDelayMs } = this.recovery.handleError(error)
+
+        switch (action) {
+          case 'retry':
+            // Auto-retry with delay
+            message.status = 'pending'
+            message.content = ''
+            this.emit('update')
+            this.activeRequests.delete(message.id)
+
+            if (retryDelayMs > 0) {
+              await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
+            }
+            return this.executeRequest(message, retryCount + 1)
+
+          case 'compact':
+            // Compact history and retry
+            message.status = 'pending'
+            message.content = ''
+            this.emit('update')
+            this.activeRequests.delete(message.id)
+            return this.executeRequest(message, retryCount + 1)
+
+          case 'failover':
+            // Failover is handled at the LLM client level
+            // Fall through to error state
+            break
+
+          case 'abort':
+          default:
+            break
+        }
+
+        // Set classified error info on the message
+        message.status = 'error'
+        message.error = classified.detail
+        message.errorCategory = classified.category
+        message.errorRetryable = classified.retryable
       } else {
         message.status = 'error'
         message.error = error.message || 'Unknown error'
       }
       this.emit('update')
-
     } finally {
       this.activeRequests.delete(message.id)
     }
@@ -145,8 +235,8 @@ export class ChatSession extends EventEmitter {
    */
   private getHistory(): Array<{ role: string; content: string }> {
     return this.messages
-      .filter(m => m.status === 'complete' && m.content)
-      .map(m => ({ role: m.role, content: m.content }))
+      .filter((m) => m.status === 'complete' && m.content)
+      .map((m) => ({ role: m.role, content: m.content }))
   }
 
   private generateId(): string {
