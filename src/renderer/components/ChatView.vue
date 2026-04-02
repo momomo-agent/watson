@@ -4,6 +4,7 @@ import { useChatSession } from '../composables/useChatSession'
 import MessageCard from './MessageCard.vue'
 import ChatInput from './ChatInput.vue'
 import StatusIndicator from './StatusIndicator.vue'
+import WorkspaceSwitcher from './WorkspaceSwitcher.vue'
 
 const { messages, isLoading, error, sendMessage, cancel, retry } = useChatSession('main')
 const messagesContainer = ref<HTMLElement | null>(null)
@@ -30,6 +31,10 @@ const handleSend = async (text: string) => {
 
 <template>
   <div class="chat-view">
+    <div class="header">
+      <WorkspaceSwitcher />
+    </div>
+
     <div class="messages" ref="messagesContainer">
       <div v-if="messages.length === 0" class="empty-state">
         <p>Watson</p>
@@ -66,6 +71,12 @@ const handleSend = async (text: string) => {
   background: #0a0a0a;
 }
 
+.header {
+  padding: 1rem;
+  border-bottom: 1px solid #2a2a2a;
+  background: #0a0a0a;
+}
+
 .messages {
   flex: 1;
   overflow-y: auto;
@@ -76,20 +87,24 @@ const handleSend = async (text: string) => {
 
 /* Custom scrollbar */
 .messages::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .messages::-webkit-scrollbar-track {
   background: transparent;
+  margin: 4px 0;
 }
 
 .messages::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 3px;
+  background: #2a2a2a;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 .messages::-webkit-scrollbar-thumb:hover {
-  background: #444;
+  background: #3a3a3a;
+  background-clip: padding-box;
 }
 
 .empty-state {

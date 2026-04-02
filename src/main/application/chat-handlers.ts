@@ -7,6 +7,7 @@
 
 import { ipcMain, BrowserWindow } from 'electron'
 import { WorkspaceManager } from '../application/workspace-manager'
+import { captureCurrentWindow } from '../infrastructure/screen-capture'
 
 const workspaceManager = new WorkspaceManager()
 
@@ -68,6 +69,15 @@ export function registerChatHandlers(mainWindow: BrowserWindow) {
         return { success: true }
       }
       return { success: false, error: 'Session not found' }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('screen:capture', async () => {
+    try {
+      const context = await captureCurrentWindow()
+      return { success: true, data: context }
     } catch (error: any) {
       return { success: false, error: error.message }
     }

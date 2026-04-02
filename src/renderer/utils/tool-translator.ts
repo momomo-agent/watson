@@ -25,6 +25,12 @@ export function translateToolCall(toolName: string, input: any): string {
     case 'skill_exec':
       return `正在执行 ${input.skill || 'skill'}`
     
+    case 'screen_sense':
+      return '🖥️ 查看屏幕内容'
+    
+    case 'coding_agent':
+      return `🤖 派发编码任务: ${input.task || ''}`
+    
     default:
       return `正在使用 ${toolName}`
   }

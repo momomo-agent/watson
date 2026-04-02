@@ -11,6 +11,7 @@ const emit = defineEmits<{
 
 const input = ref('')
 const textarea = ref<HTMLTextAreaElement | null>(null)
+const capturing = ref(false)
 
 const handleSend = () => {
   const text = input.value.trim()
@@ -39,10 +40,37 @@ const handleInput = () => {
     textarea.value.style.height = Math.min(textarea.value.scrollHeight, 200) + 'px'
   }
 }
+
+// Screen capture
+const handleCapture = async () => {
+  if (props.disabled || capturing.value) return
+  capturing.value = true
+  try {
+    const result = await (window as any).api.invoke('screen:capture')
+    if (result.success) {
+      const { windowTitle, appName, content } = result.data
+      const prefix = `[Screen: ${appName} - ${windowTitle}]\n\n${content}\n\n`
+      input.value = prefix + input.value
+      nextTick(() => handleInput())
+    }
+  } catch (error) {
+    console.error('Screen capture failed:', error)
+  } finally {
+    capturing.value = false
+  }
+}
 </script>
 
 <template>
   <div class="chat-input">
+    <button 
+      class="capture-btn" 
+      @click="handleCapture" 
+      :disabled="disabled || capturing"
+      title="Capture screen context"
+    >
+      {{ capturing ? '📸...' : '📸' }}
+    </button>
     <textarea
       ref="textarea"
       v-model="input"
@@ -113,5 +141,16 @@ button:hover:not(:disabled) {
 button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.capture-btn {
+  padding: 0.6rem;
+  min-width: 38px;
+  background: #2d2d2d;
+  font-size: 1.1rem;
+}
+
+.capture-btn:hover:not(:disabled) {
+  background: #3d3d3d;
 }
 </style>

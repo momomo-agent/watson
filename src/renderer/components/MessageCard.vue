@@ -32,17 +32,17 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
 
     <div class="status-bar">
       <!-- 只在 streaming/pending 时显示详细状态 -->
-      <span v-if="message.status === 'pending'" class="status pending">
+      <span v-if="message.status === 'pending'" class="status pending" title="Waiting for response">
         <span class="dot-pulse"></span> Thinking...
       </span>
-      <span v-else-if="message.status === 'streaming'" class="status streaming">
+      <span v-else-if="message.status === 'streaming'" class="status streaming" title="Receiving response">
         <span class="dot-pulse"></span>
       </span>
       <!-- 完成后只显示 ✓ -->
-      <span v-else-if="message.status === 'complete'" class="status complete">✓</span>
+      <span v-else-if="message.status === 'complete'" class="status complete" title="Complete">✓</span>
       <!-- 错误时显示详细信息 -->
-      <span v-else-if="message.status === 'error'" class="status error">✗ {{ message.error }}</span>
-      <span v-else-if="message.status === 'cancelled'" class="status cancelled">⊘</span>
+      <span v-else-if="message.status === 'error'" class="status error" :title="message.error">✗ {{ message.error }}</span>
+      <span v-else-if="message.status === 'cancelled'" class="status cancelled" title="Cancelled by user">⊘</span>
 
       <div class="actions" v-if="canCancel() || canRetry()">
         <button v-if="canCancel()" @click="emit('cancel')" class="btn-cancel">Cancel</button>
@@ -54,15 +54,21 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
 
 <style scoped>
 .message-card {
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.75rem;
-  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 12px;
   background: #1a1a1a;
   border: 1px solid #2a2a2a;
+  transition: border-color 0.2s;
+}
+
+.message-card:hover {
+  border-color: #3a3a3a;
 }
 
 .message-card.user {
-  background: #2a2a3a;
+  background: #1e1e2e;
+  border-color: #2e2e3e;
 }
 
 .message-card.error {
@@ -70,40 +76,42 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
 }
 
 .role-label {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: #888;
-  margin-bottom: 0.25rem;
+  color: #666;
+  margin-bottom: 0.5rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
 }
 
 .content {
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.5;
+  line-height: 1.6;
+  color: #e0e0e0;
 }
 
 .tool-calls {
-  margin-top: 0.5rem;
+  margin-top: 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.5rem;
 }
 
 .tool-call {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.25rem 0.5rem;
-  background: #0a0a0a;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  color: #999;
+  padding: 0.5rem 0.75rem;
+  background: rgba(74, 158, 255, 0.1);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #aaa;
+  border: 1px solid rgba(74, 158, 255, 0.2);
 }
 
 .tool-icon {
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
 .tool-text {
@@ -114,9 +122,17 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 0.5rem;
-  font-size: 0.8rem;
-  color: #888;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #2a2a2a;
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .status.error {
@@ -127,20 +143,22 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
   color: #ffa500;
 }
 
+.status.complete {
+  color: #4a9eff;
+}
+
 .dot-pulse {
   display: inline-block;
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: #4a9eff;
-  animation: pulse 1s ease-in-out infinite;
-  margin-right: 4px;
-  vertical-align: middle;
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
 }
 
 .actions {
@@ -149,26 +167,30 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
 }
 
 button {
-  padding: 0.2rem 0.6rem;
-  border: 1px solid #404040;
-  border-radius: 4px;
-  background: #2a2a2a;
-  color: #e0e0e0;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #3a3a3a;
+  border-radius: 6px;
+  background: transparent;
+  color: #999;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
+  transition: all 0.2s;
 }
 
 button:hover {
-  background: #353535;
+  background: #2a2a2a;
+  color: #e0e0e0;
 }
 
 .btn-cancel:hover {
   border-color: #ff6b6b;
   color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
 }
 
 .btn-retry:hover {
   border-color: #4a9eff;
   color: #4a9eff;
+  background: rgba(74, 158, 255, 0.1);
 }
 </style>
