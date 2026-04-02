@@ -33,8 +33,24 @@ export class HeartbeatScheduler {
   }
 
   private async tick() {
-    // 执行 heartbeat 逻辑
-    console.log('Heartbeat tick for workspace:', this.workspace.path)
+    console.log(`[Heartbeat] Tick at ${new Date().toISOString()} for workspace: ${this.workspace.name}`)
+    
+    // 执行心跳任务：检查 workspace 状态、清理临时文件等
+    try {
+      const { existsSync } = await import('fs')
+      if (!existsSync(this.workspace.path)) {
+        console.warn(`[Heartbeat] Workspace path not found: ${this.workspace.path}`)
+        return
+      }
+      
+      // 可以在这里添加更多心跳逻辑：
+      // - 检查磁盘空间
+      // - 清理过期缓存
+      // - 同步配置
+      console.log(`[Heartbeat] Workspace ${this.workspace.name} is healthy`)
+    } catch (error) {
+      console.error('[Heartbeat] Error during tick:', error)
+    }
   }
 
   private getInterval(): number {
