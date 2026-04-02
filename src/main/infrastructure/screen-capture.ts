@@ -15,18 +15,47 @@ export interface ScreenContext {
   timestamp: number
 }
 
+interface UIElement {
+  label?: string
+  value?: string
+  role?: string
+  interactive?: boolean
+}
+
 /**
  * Capture current active window content
  */
 export async function captureCurrentWindow(): Promise<ScreenContext> {
   try {
-    const { stdout } = await execAsync('agent-control -p macos --action screen_sense')
-    const data = JSON.parse(stdout)
+    const { stdout } = await execAsync('agent-control -p macos snapshot')
+    const elements: UIElement[] = JSON.parse(stdout)
+    
+    // Extract window title and app name from menu bar items
+    let windowTitle = ''
+    let appName = ''
+    
+    for (const el of elements) {
+      if (el.role === 'MenuBarItem' && el.label && el.label !== 'Apple') {
+        appName = el.label
+        break
+      }
+    }
+    
+    // Extract meaningful content from UI elements
+    const contentParts: string[] = []
+    for (const el of elements) {
+      if (el.label && el.label.trim()) {
+        contentParts.push(el.label)
+      }
+      if (el.value && el.value.trim()) {
+        contentParts.push(el.value)
+      }
+    }
     
     return {
-      windowTitle: data.windowTitle || '',
-      appName: data.appName || '',
-      content: data.content || '',
+      windowTitle,
+      appName,
+      content: contentParts.join(' '),
       timestamp: Date.now()
     }
   } catch (error) {
