@@ -4,7 +4,6 @@ import { useChatSession } from '../composables/useChatSession'
 import MessageCard from './MessageCard.vue'
 import ChatInput from './ChatInput.vue'
 import StatusIndicator from './StatusIndicator.vue'
-import WorkspaceSwitcher from './WorkspaceSwitcher.vue'
 
 const { messages, isLoading, error, sendMessage, cancel, retry } = useChatSession('main')
 const messagesContainer = ref<HTMLElement | null>(null)
@@ -31,10 +30,6 @@ const handleSend = async (text: string) => {
 
 <template>
   <div class="chat-view">
-    <div class="header">
-      <WorkspaceSwitcher />
-    </div>
-
     <div class="messages" ref="messagesContainer">
       <div v-if="messages.length === 0" class="empty-state">
         <p>Watson</p>
@@ -68,12 +63,7 @@ const handleSend = async (text: string) => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #0a0a0a;
-}
-
-.header {
-  padding: 1rem;
-  border-bottom: 1px solid #2a2a2a;
+  flex: 1;
   background: #0a0a0a;
 }
 

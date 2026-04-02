@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Message } from '../composables/useChatSession'
+import type { Message, ToolCallInfo } from '../composables/useChatSession'
 import { translateToolCall } from '../utils/tool-translator'
 
 const props = defineProps<{
@@ -11,9 +11,19 @@ const emit = defineEmits<{
   retry: []
 }>()
 
-const canCancel = () => ['streaming', 'pending'].includes(props.message.status)
+const canCancel = () => ['streaming', 'pending', 'tool_calling'].includes(props.message.status)
 const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
 
+function toolStatusIcon(status: ToolCallInfo['status']): string {
+  switch (status) {
+    case 'pending': return '⏳'
+    case 'running': return '⚙️'
+    case 'complete': return '✅'
+    case 'error': return '❌'
+    case 'blocked': return '🚫'
+    default: return '🔧'
+  }
+}
 </script>
 
 <template>
@@ -24,24 +34,39 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
 
     <!-- 工具调用显示 -->
     <div v-if="message.toolCalls && message.toolCalls.length > 0" class="tool-calls">
-      <div v-for="(tool, idx) in message.toolCalls" :key="idx" class="tool-call">
-        <span class="tool-icon">🔧</span>
+      <div class="tool-round" v-if="message.toolRound">
+        Round {{ message.toolRound }}
+      </div>
+      <div v-for="(tool, idx) in message.toolCalls" :key="tool.id || idx"
+           class="tool-call" :class="tool.status">
+        <span class="tool-icon">{{ toolStatusIcon(tool.status) }}</span>
         <span class="tool-text">{{ translateToolCall(tool.name, tool.input) }}</span>
+        <span v-if="tool.status === 'error' && tool.error" class="tool-error">
+          {{ tool.error }}
+        </span>
+        <span v-if="tool.status === 'blocked' && tool.error" class="tool-blocked">
+          {{ tool.error }}
+        </span>
       </div>
     </div>
 
     <div class="status-bar">
-      <!-- 只在 streaming/pending 时显示详细状态 -->
+      <!-- 只在 streaming/pending/tool_calling 时显示详细状态 -->
       <span v-if="message.status === 'pending'" class="status pending" title="Waiting for response">
         <span class="dot-pulse"></span> Thinking...
       </span>
       <span v-else-if="message.status === 'streaming'" class="status streaming" title="Receiving response">
         <span class="dot-pulse"></span>
       </span>
+      <span v-else-if="message.status === 'tool_calling'" class="status tool-calling" title="Executing tools">
+        <span class="dot-pulse"></span> Using tools...
+      </span>
       <!-- 完成后只显示 ✓ -->
       <span v-else-if="message.status === 'complete'" class="status complete" title="Complete">✓</span>
       <!-- 错误时显示详细信息 -->
-      <span v-else-if="message.status === 'error'" class="status error" :title="message.error">✗ {{ message.error }}</span>
+      <span v-else-if="message.status === 'error'" class="status error" :title="message.error">
+        ✗ {{ message.errorCategory ? `[${message.errorCategory}] ` : '' }}{{ message.error }}
+      </span>
       <span v-else-if="message.status === 'cancelled'" class="status cancelled" title="Cancelled by user">⊘</span>
 
       <div class="actions" v-if="canCancel() || canRetry()">
@@ -75,6 +100,10 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
   border-left: 3px solid #ff6b6b;
 }
 
+.message-card.tool_calling {
+  border-left: 3px solid #4a9eff;
+}
+
 .role-label {
   font-size: 0.7rem;
   font-weight: 600;
@@ -98,6 +127,13 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
   gap: 0.5rem;
 }
 
+.tool-round {
+  font-size: 0.7rem;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .tool-call {
   display: flex;
   align-items: center;
@@ -108,14 +144,49 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
   font-size: 0.85rem;
   color: #aaa;
   border: 1px solid rgba(74, 158, 255, 0.2);
+  transition: all 0.3s;
+}
+
+.tool-call.running {
+  border-color: rgba(74, 158, 255, 0.5);
+  background: rgba(74, 158, 255, 0.15);
+}
+
+.tool-call.complete {
+  border-color: rgba(74, 200, 120, 0.3);
+  background: rgba(74, 200, 120, 0.08);
+}
+
+.tool-call.error {
+  border-color: rgba(255, 107, 107, 0.3);
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.tool-call.blocked {
+  border-color: rgba(255, 165, 0, 0.3);
+  background: rgba(255, 165, 0, 0.08);
 }
 
 .tool-icon {
   font-size: 1rem;
+  flex-shrink: 0;
 }
 
 .tool-text {
   flex: 1;
+}
+
+.tool-error, .tool-blocked {
+  font-size: 0.75rem;
+  color: #ff6b6b;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-blocked {
+  color: #ffa500;
 }
 
 .status-bar {
@@ -144,6 +215,10 @@ const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
 }
 
 .status.complete {
+  color: #4a9eff;
+}
+
+.status.tool-calling {
   color: #4a9eff;
 }
 

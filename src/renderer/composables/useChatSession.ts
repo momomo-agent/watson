@@ -1,24 +1,34 @@
 /**
  * useChatSession — UI Layer composable
- * 
+ *
  * Reactive bridge between Vue components and main process ChatSession.
  * Handles IPC communication and state management.
+ *
+ * MOMO-34: Supports tool_calling status and toolCalls array.
  */
 
 import { ref, onMounted, onUnmounted } from 'vue'
+
+export interface ToolCallInfo {
+  id: string
+  name: string
+  input: any
+  status: 'pending' | 'running' | 'complete' | 'error' | 'blocked'
+  output?: string
+  error?: string
+}
 
 export interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
   timestamp: number
-  status: 'pending' | 'streaming' | 'complete' | 'error' | 'cancelled'
+  status: 'pending' | 'streaming' | 'tool_calling' | 'complete' | 'error' | 'cancelled'
   error?: string
-  toolCalls?: Array<{
-    name: string
-    input: any
-    status: 'running' | 'complete' | 'error'
-  }>
+  errorCategory?: string
+  errorRetryable?: boolean
+  toolCalls?: ToolCallInfo[]
+  toolRound?: number
 }
 
 export function useChatSession(sessionId: string) {
@@ -31,9 +41,9 @@ export function useChatSession(sessionId: string) {
   const handleUpdate = (data: { sessionId: string; messages: Message[] }) => {
     if (data.sessionId === sessionId) {
       messages.value = data.messages
-      // Update loading state: loading if any message is pending/streaming
+      // Update loading state: loading if any message is pending/streaming/tool_calling
       isLoading.value = data.messages.some(
-        m => m.status === 'pending' || m.status === 'streaming'
+        m => m.status === 'pending' || m.status === 'streaming' || m.status === 'tool_calling'
       )
     }
   }

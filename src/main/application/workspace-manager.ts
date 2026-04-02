@@ -1,13 +1,16 @@
 /**
  * WorkspaceManager — Application Layer
  *
- * Bridges domain (ChatSession) with infrastructure (LLM, ErrorRecovery, MCP).
+ * Bridges domain (ChatSession) with infrastructure (LLM, ErrorRecovery, MCP, ToolRunner).
  * Injects dependencies via constructor/factory pattern.
+ *
+ * MOMO-34: Now injects ToolRunner.execute as the toolExecutor for the agentic tool loop.
  */
 
-import { ChatSession, type LLMStreamFn, type ErrorRecoveryCallbacks } from '../domain/chat-session'
+import { ChatSession, type LLMStreamFn, type ErrorRecoveryCallbacks, type ToolExecutorFn } from '../domain/chat-session'
 import { EnhancedLLMClient, type ProviderConfig } from '../infrastructure/enhanced-llm-client'
 import { ErrorRecovery } from '../infrastructure/error-recovery'
+import { ToolRunner } from '../infrastructure/tool-runner'
 import { loadConfig } from '../infrastructure/config'
 import { McpManager } from '../infrastructure/mcp-manager'
 import { BUILTIN_TOOLS } from '../infrastructure/tools'
@@ -18,6 +21,8 @@ export class WorkspaceManager {
 
   setMcpManager(manager: McpManager) {
     this.mcpManager = manager
+    // Wire MCP manager into ToolRunner
+    ToolRunner.setMcpManager(manager)
   }
 
   getOrCreate(workspacePath: string): Workspace {
@@ -47,7 +52,11 @@ export class Workspace {
       const config = loadConfig(this.path)
       const llmStream = this.createLLMStream()
       const recovery = this.createErrorRecovery(config.model)
-      this.sessions.set(sessionId, new ChatSession(sessionId, this.path, llmStream, recovery))
+      const toolExecutor = this.createToolExecutor()
+      this.sessions.set(
+        sessionId,
+        new ChatSession(sessionId, this.path, llmStream, recovery, toolExecutor)
+      )
     }
     return this.sessions.get(sessionId)!
   }
@@ -90,6 +99,21 @@ export class Workspace {
         }
       )
       yield* stream
+    }
+  }
+
+  /**
+   * Create tool executor function that delegates to ToolRunner.
+   * This wires the infrastructure layer (ToolRunner) into the domain layer (ChatSession)
+   * without the domain knowing about ToolRunner directly.
+   */
+  private createToolExecutor(): ToolExecutorFn {
+    const workspacePath = this.path
+    return async (tool, options) => {
+      return ToolRunner.execute(
+        { name: tool.name, input: tool.input },
+        { signal: options.signal, workspacePath: options.workspacePath || workspacePath }
+      )
     }
   }
 

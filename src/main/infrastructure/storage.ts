@@ -40,6 +40,12 @@ export class Storage {
   static async loadMessages(sessionId: string): Promise<Message[]> {
     const db = getDb()
     const rows = db.prepare('SELECT role, content, timestamp FROM messages WHERE session_id = ? ORDER BY timestamp').all(sessionId) as Array<{role: string, content: string, timestamp: number}>
-    return rows.map(r => ({ role: r.role as 'user' | 'assistant', content: r.content, timestamp: r.timestamp }))
+    return rows.map((r, i) => ({
+      id: `db-${sessionId}-${i}`,
+      role: r.role as 'user' | 'assistant',
+      content: r.content,
+      timestamp: r.timestamp,
+      status: 'complete' as const,
+    }))
   }
 }
