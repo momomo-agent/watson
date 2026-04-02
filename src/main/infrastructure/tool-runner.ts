@@ -122,26 +122,98 @@ export class ToolRunner {
 
   private static async search(input: any, options: any): Promise<ToolResult> {
     try {
-      const query = encodeURIComponent(input.query)
-      return { 
-        success: true, 
-        output: `Search results for: ${input.query}\n(Search implementation pending)` 
-      }
+      const { execSync } = await import('child_process')
+      const query = input.query.replace(/'/g, "'\\''")
+      const cmd = `tavily-search '${query}'`
+      const output = execSync(cmd, {
+        encoding: 'utf8',
+        timeout: 15000,
+        maxBuffer: 5 * 1024 * 1024
+      })
+      return { success: true, output }
     } catch (error: any) {
       return { success: false, error: error.message }
     }
   }
 
   private static async codeExec(input: any, options: any): Promise<ToolResult> {
-    return this.shellExec({ command: input.code }, options)
+    try {
+      const { writeFileSync, unlinkSync } = await import('fs')
+      const { join } = await import('path')
+      const { execSync } = await import('child_process')
+      
+      const lang = input.language || 'javascript'
+      const code = input.code
+      
+      let cmd: string
+      let tmpFile: string
+      
+      if (lang === 'javascript' || lang === 'js') {
+        tmpFile = join('/tmp', `watson-${Date.now()}.js`)
+        writeFileSync(tmpFile, code, 'utf8')
+        cmd = `node ${tmpFile}`
+      } else if (lang === 'python' || lang === 'py') {
+        tmpFile = join('/tmp', `watson-${Date.now()}.py`)
+        writeFileSync(tmpFile, code, 'utf8')
+        cmd = `python3 ${tmpFile}`
+      } else {
+        return this.shellExec({ command: code }, options)
+      }
+      
+      try {
+        const output = execSync(cmd, {
+          cwd: options.workspacePath,
+          encoding: 'utf8',
+          timeout: 30000,
+          maxBuffer: 10 * 1024 * 1024
+        })
+        unlinkSync(tmpFile)
+        return { success: true, output }
+      } catch (error: any) {
+        unlinkSync(tmpFile)
+        throw error
+      }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
   }
 
   private static async uiStatusSet(input: any): Promise<ToolResult> {
-    return { success: true, output: `Status set: ${input.status}` }
+    try {
+      const { BrowserWindow } = await import('electron')
+      const win = BrowserWindow.getAllWindows()[0]
+      if (win) {
+        win.webContents.send('status-update', {
+          status: input.status,
+          timestamp: Date.now()
+        })
+        return { success: true, output: `Status set: ${input.status}` }
+      }
+      return { success: false, error: 'No window found' }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
   }
 
   private static async skillExec(input: any, options: any): Promise<ToolResult> {
-    return { success: true, output: `Skill ${input.skill} executed` }
+    try {
+      const { execSync } = await import('child_process')
+      const skill = input.skill
+      const args = input.args || []
+      const argsStr = args.map((a: string) => `'${a.replace(/'/g, "'\\''")}'`).join(' ')
+      const cmd = `openclaw skill ${skill} ${argsStr}`
+      
+      const output = execSync(cmd, {
+        cwd: options.workspacePath,
+        encoding: 'utf8',
+        timeout: 60000,
+        maxBuffer: 10 * 1024 * 1024
+      })
+      
+      return { success: true, output }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
   }
 
   private static async screenSense(input: any): Promise<ToolResult> {
