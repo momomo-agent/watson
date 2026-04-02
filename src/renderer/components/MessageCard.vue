@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Message, ToolCallInfo } from '../composables/useChatSession'
 import { translateToolCall } from '../utils/tool-translator'
+import { renderMarkdown } from '../utils/markdown'
 
 const props = defineProps<{
   message: Message
@@ -13,6 +15,11 @@ const emit = defineEmits<{
 
 const canCancel = () => ['streaming', 'pending', 'tool_calling'].includes(props.message.status)
 const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
+
+const renderedContent = computed(() => {
+  if (!props.message.content) return ''
+  return renderMarkdown(props.message.content)
+})
 
 function toolStatusIcon(status: ToolCallInfo['status']): string {
   switch (status) {
@@ -30,7 +37,7 @@ function toolStatusIcon(status: ToolCallInfo['status']): string {
   <div class="message-card" :class="[message.role, message.status]">
     <div class="role-label">{{ message.role === 'user' ? 'You' : 'Watson' }}</div>
 
-    <div class="content" v-if="message.content">{{ message.content }}</div>
+    <div class="content" v-if="message.content" v-html="renderedContent"></div>
 
     <!-- 工具调用显示 -->
     <div v-if="message.toolCalls && message.toolCalls.length > 0" class="tool-calls">
@@ -78,6 +85,8 @@ function toolStatusIcon(status: ToolCallInfo['status']): string {
 </template>
 
 <style scoped>
+@import 'highlight.js/styles/github-dark.css';
+
 .message-card {
   padding: 1rem;
   margin-bottom: 1rem;
@@ -118,6 +127,37 @@ function toolStatusIcon(status: ToolCallInfo['status']): string {
   word-break: break-word;
   line-height: 1.6;
   color: #e0e0e0;
+}
+
+.content :deep(a) {
+  color: #4a9eff;
+  text-decoration: none;
+}
+
+.content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.content :deep(pre) {
+  background: #0d1117;
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.content :deep(code) {
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 0.9em;
+}
+
+.content :deep(p) {
+  margin: 0.5rem 0;
+}
+
+.content :deep(ul), .content :deep(ol) {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
 }
 
 .tool-calls {

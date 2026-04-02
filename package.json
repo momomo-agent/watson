@@ -30,6 +30,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "better-sqlite3": "^12.8.0",
+    "highlight.js": "^11.11.1",
+    "marked": "^17.0.5",
     "node-cron": "^4.2.1",
     "sqlite-vec": "^0.1.6"
   }
