@@ -1,3 +1,5 @@
+import { McpManager } from './mcp-manager'
+
 export interface ToolCall {
   name: string
   input: any
@@ -11,6 +13,11 @@ export interface ToolResult {
 
 export class ToolRunner {
   private static readonly TIMEOUT_MS = 30000 // 30 seconds
+  private static mcpManager: McpManager | null = null
+
+  static setMcpManager(manager: McpManager) {
+    this.mcpManager = manager
+  }
 
   static async execute(tool: ToolCall, options: { signal: AbortSignal, workspacePath: string }): Promise<ToolResult> {
     const timeoutPromise = new Promise<ToolResult>((_, reject) => 
@@ -28,6 +35,16 @@ export class ToolRunner {
   }
 
   private static async executeInternal(tool: ToolCall, options: { signal: AbortSignal, workspacePath: string }): Promise<ToolResult> {
+    // Check if it's an MCP tool
+    if (this.mcpManager?.isMcpTool(tool.name)) {
+      try {
+        const output = await this.mcpManager.callTool(tool.name, tool.input)
+        return { success: true, output }
+      } catch (error: any) {
+        return { success: false, error: error.message }
+      }
+    }
+
     switch (tool.name) {
       case 'file_read':
         return this.fileRead(tool.input, options)

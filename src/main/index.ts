@@ -7,9 +7,13 @@ import { registerCodingAgentHandlers } from './application/coding-agent-handlers
 import { HeartbeatScheduler } from './application/heartbeat-scheduler'
 import { CronScheduler } from './application/cron-scheduler'
 import { WorkspaceManager } from './domain/workspace-manager'
+import { McpManager } from './infrastructure/mcp-manager'
+import { ToolRunner } from './infrastructure/tool-runner'
+import { loadConfig } from './infrastructure/config'
 
 let mainWindow: BrowserWindow | null = null
 const workspaceManager = new WorkspaceManager()
+const mcpManager = new McpManager()
 let heartbeat: HeartbeatScheduler | null = null
 let cron: CronScheduler | null = null
 
@@ -35,14 +39,29 @@ function createWindow() {
   }
   
   // 注册 IPC handlers
-  registerChatHandlers(mainWindow)
+  registerChatHandlers(mainWindow, mcpManager)
   registerWorkspaceHandlers(mainWindow)
   registerPersistenceHandlers(mainWindow)
   registerCodingAgentHandlers(mainWindow)
   
-  // 启动调度器
+  // 设置 MCP 管理器到 ToolRunner
+  ToolRunner.setMcpManager(mcpManager)
+  
+  // 启动调度器和 MCP
   const currentWorkspace = workspaceManager.getCurrentWorkspace()
   if (currentWorkspace) {
+    // 加载配置并连接 MCP 服务器
+    try {
+      const config = loadConfig(currentWorkspace)
+      if (config.mcpServers) {
+        mcpManager.connectAll(config.mcpServers).catch(err => {
+          console.error('[MCP] Connection failed:', err)
+        })
+      }
+    } catch (err) {
+      console.warn('[MCP] Config load failed:', err)
+    }
+    
     heartbeat = new HeartbeatScheduler(currentWorkspace)
     heartbeat.start()
     

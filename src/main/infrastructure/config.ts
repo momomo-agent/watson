@@ -9,11 +9,19 @@ import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { app } from 'electron'
 
+export interface McpServerConfig {
+  command: string
+  args?: string[]
+  env?: Record<string, string>
+  disabled?: boolean
+}
+
 export interface Config {
   provider: 'anthropic' | 'openai'
   apiKey: string
   baseUrl?: string
   model?: string
+  mcpServers?: Record<string, McpServerConfig>
 }
 
 export function loadConfig(workspacePath: string): Config {

@@ -8,6 +8,8 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { WorkspaceManager } from '../application/workspace-manager'
 import { captureCurrentWindow } from '../infrastructure/screen-capture'
+import { McpManager } from '../infrastructure/mcp-manager'
+import { BUILTIN_TOOLS } from '../infrastructure/tools'
 
 const workspaceManager = new WorkspaceManager()
 
@@ -29,7 +31,10 @@ function ensureSessionListener(session: any, sessionId: string, mainWindow: Brow
   attachedListeners.add(key)
 }
 
-export function registerChatHandlers(mainWindow: BrowserWindow) {
+export function registerChatHandlers(mainWindow: BrowserWindow, mcpManager: McpManager) {
+  // 设置 MCP 管理器到 workspace manager
+  workspaceManager.setMcpManager(mcpManager)
+  
   ipcMain.handle('chat:send', async (_event, { sessionId, text, workspacePath }) => {
     try {
       const workspace = workspaceManager.getOrCreate(workspacePath || process.cwd())
