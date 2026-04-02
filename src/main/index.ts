@@ -3,12 +3,15 @@ import { join } from 'path'
 import { registerChatHandlers } from './application/chat-handlers'
 import { registerWorkspaceHandlers } from './application/workspace-handlers'
 import { registerPersistenceHandlers } from './application/persistence-handlers'
-import { HeartbeatScheduler } from './domain/heartbeat-scheduler'
-import { CronScheduler } from './domain/cron-scheduler'
+import { registerCodingAgentHandlers } from './application/coding-agent-handlers'
+import { HeartbeatScheduler } from './application/heartbeat-scheduler'
+import { CronScheduler } from './application/cron-scheduler'
+import { WorkspaceManager } from './domain/workspace-manager'
 
 let mainWindow: BrowserWindow | null = null
-const heartbeat = new HeartbeatScheduler()
-const cron = new CronScheduler()
+const workspaceManager = new WorkspaceManager()
+let heartbeat: HeartbeatScheduler | null = null
+let cron: CronScheduler | null = null
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -35,24 +38,27 @@ function createWindow() {
   registerChatHandlers(mainWindow)
   registerWorkspaceHandlers(mainWindow)
   registerPersistenceHandlers(mainWindow)
+  registerCodingAgentHandlers(mainWindow)
   
   // 启动调度器
-  heartbeat.onHeartbeat(() => {
-    console.log('[Heartbeat]', new Date().toISOString())
-  })
-  heartbeat.start(60000) // 每分钟
-  
-  // 示例 cron 任务：每天 9:00
-  cron.schedule('0 9 * * *', () => {
-    console.log('[Cron] Daily task at 9:00')
-  })
+  const currentWorkspace = workspaceManager.getCurrentWorkspace()
+  if (currentWorkspace) {
+    heartbeat = new HeartbeatScheduler(currentWorkspace)
+    heartbeat.start()
+    
+    cron = new CronScheduler(currentWorkspace)
+    cron.addJob('daily-cleanup', '0 2 * * *', () => {
+      console.log('[Cron] Daily cleanup at 2:00 AM')
+    })
+    cron.start()
+  }
 }
 
 app.whenReady().then(createWindow)
 
 app.on('window-all-closed', () => {
-  heartbeat.stop()
-  cron.stop()
+  heartbeat?.stop()
+  cron?.stop()
   if (process.platform !== 'darwin') {
     app.quit()
   }
