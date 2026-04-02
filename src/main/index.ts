@@ -4,6 +4,7 @@ import { registerChatHandlers } from './application/chat-handlers'
 import { registerWorkspaceHandlers } from './application/workspace-handlers'
 import { registerPersistenceHandlers } from './application/persistence-handlers'
 import { registerCodingAgentHandlers } from './application/coding-agent-handlers'
+import { registerMemoryHandlers } from './application/memory-handlers'
 import { HeartbeatScheduler } from './application/heartbeat-scheduler'
 import { CronScheduler } from './application/cron-scheduler'
 import { WorkspaceManager } from './domain/workspace-manager'
@@ -43,6 +44,7 @@ function createWindow() {
   registerWorkspaceHandlers(mainWindow)
   registerPersistenceHandlers(mainWindow)
   registerCodingAgentHandlers(mainWindow)
+  registerMemoryHandlers()
   
   // 设置 MCP 管理器到 ToolRunner
   ToolRunner.setMcpManager(mcpManager)

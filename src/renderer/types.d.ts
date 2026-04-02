@@ -7,5 +7,6 @@ export interface IElectronAPI {
 declare global {
   interface Window {
     api: IElectronAPI
+    electron: IElectronAPI
   }
 }
