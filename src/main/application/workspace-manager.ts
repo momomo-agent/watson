@@ -14,6 +14,7 @@ import { ToolRunner } from '../infrastructure/tool-runner'
 import { loadConfig } from '../infrastructure/config'
 import { McpManager } from '../infrastructure/mcp-manager'
 import { BUILTIN_TOOLS } from '../infrastructure/tools'
+import { buildSystemPrompt } from '../infrastructure/prompt-builder'
 
 export class WorkspaceManager {
   private workspaces = new Map<string, Workspace>()
@@ -73,6 +74,9 @@ export class Workspace {
         tools.push(...mcpManager.listTools())
       }
 
+      // Build system prompt from workspace files + tools
+      const systemPrompt = buildSystemPrompt(workspacePath, tools)
+
       // Use the resilient streaming method with retry + failover
       const stream = EnhancedLLMClient.streamChatWithRetry(
         {
@@ -82,6 +86,7 @@ export class Workspace {
           apiKey: config.apiKey,
           baseUrl: config.baseUrl,
           model: config.model,
+          system: systemPrompt,
           tools,
         },
         2, // maxRetries
