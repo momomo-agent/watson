@@ -11,10 +11,12 @@ export interface Message {
   content: string
   status: string
   createdAt: number
+  timestamp?: number
   toolCalls?: any[]
   error?: string
   errorCategory?: string
   agentId?: string // MOMO-50: Multi-agent support
+  metadata?: Record<string, any>
 }
 
 export class MessageStore {
@@ -27,6 +29,7 @@ export class MessageStore {
     }
     
     this.db = new Database(join(configDir, 'messages.db'))
+    this.db.pragma('journal_mode = WAL')
     this.init()
   }
 
@@ -40,18 +43,38 @@ export class MessageStore {
         content TEXT,
         status TEXT,
         created_at INTEGER,
+        timestamp INTEGER,
         tool_calls TEXT,
         error TEXT,
         error_category TEXT,
-        agent_id TEXT
+        agent_id TEXT,
+        metadata TEXT
       )
     `)
+    
+    // Migrations: add columns if missing
+    const migrations = [
+      `ALTER TABLE messages ADD COLUMN timestamp INTEGER`,
+      `ALTER TABLE messages ADD COLUMN metadata TEXT`
+    ]
+    for (const sql of migrations) {
+      try { 
+        this.db.exec(sql) 
+      } catch (e: any) {
+        if (e.message && !e.message.includes('duplicate column')) {
+          console.warn('[message-store] migration warning:', e.message)
+        }
+      }
+    }
+
+    // Add index for session lookups
+    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, created_at)`)
   }
 
   save(message: Message) {
     const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO messages (id, session_id, workspace_id, role, content, status, created_at, tool_calls, error, error_category, agent_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO messages (id, session_id, workspace_id, role, content, status, created_at, timestamp, tool_calls, error, error_category, agent_id, metadata)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     stmt.run(
       message.id,
@@ -61,10 +84,12 @@ export class MessageStore {
       message.content,
       message.status,
       message.createdAt,
+      message.timestamp || message.createdAt,
       message.toolCalls ? JSON.stringify(message.toolCalls) : null,
       message.error || null,
       message.errorCategory || null,
-      message.agentId || null
+      message.agentId || null,
+      message.metadata ? JSON.stringify(message.metadata) : null
     )
   }
 
@@ -81,16 +106,41 @@ export class MessageStore {
       content: row.content,
       status: row.status,
       createdAt: row.created_at,
+      timestamp: row.timestamp || row.created_at,
       toolCalls: row.tool_calls ? JSON.parse(row.tool_calls) : undefined,
       error: row.error || undefined,
       errorCategory: row.error_category || undefined,
-      agentId: row.agent_id || undefined
+      agentId: row.agent_id || undefined,
+      metadata: row.metadata ? JSON.parse(row.metadata) : undefined
     }))
+  }
+
+  /**
+   * List all distinct session IDs that have messages stored.
+   * Used for discovering sessions on startup.
+   */
+  listSessionIds(workspaceId?: string): string[] {
+    if (workspaceId) {
+      const rows = this.db.prepare(
+        'SELECT DISTINCT session_id FROM messages WHERE workspace_id = ?'
+      ).all(workspaceId) as any[]
+      return rows.map(r => r.session_id)
+    }
+    const rows = this.db.prepare('SELECT DISTINCT session_id FROM messages').all() as any[]
+    return rows.map(r => r.session_id)
   }
 
   clear(sessionId: string, workspaceId: string) {
     const stmt = this.db.prepare('DELETE FROM messages WHERE session_id = ? AND workspace_id = ?')
     stmt.run(sessionId, workspaceId)
+  }
+
+  /**
+   * Clear all messages for a session regardless of workspace.
+   * Used when deleting a session entirely.
+   */
+  clearBySessionId(sessionId: string) {
+    this.db.prepare('DELETE FROM messages WHERE session_id = ?').run(sessionId)
   }
 
   close() {

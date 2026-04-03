@@ -6,6 +6,7 @@
  *
  * MOMO-34: Now injects ToolRunner.execute as the toolExecutor for the agentic tool loop.
  * MOMO-50: Multi-agent support via AgentManager.
+ * MOMO-51: Uses shared messageStore/sessionStore from persistence-handlers for SQLite persistence.
  */
 
 import { ChatSession, type LLMStreamFn, type ErrorRecoveryCallbacks, type ToolExecutorFn } from '../domain/chat-session'
@@ -16,10 +17,8 @@ import { loadConfig } from '../infrastructure/config'
 import { McpManager } from '../infrastructure/mcp-manager'
 import { BUILTIN_TOOLS } from '../infrastructure/tools'
 import { buildSystemPrompt } from '../infrastructure/prompt-builder'
-import { MessageStore } from '../infrastructure/message-store'
+import { messageStore, sessionStore } from './persistence-handlers'
 import { AgentManager, type AgentConfig } from '../infrastructure/agent-manager'
-
-const messageStore = new MessageStore()
 
 export class WorkspaceManager {
   private workspaces = new Map<string, Workspace>()
@@ -73,7 +72,7 @@ export class Workspace {
         id: m.id,
         role: m.role as 'user' | 'assistant',
         content: m.content,
-        timestamp: m.createdAt,
+        timestamp: m.timestamp || m.createdAt,
         status: m.status as any,
         error: m.error,
         errorCategory: m.errorCategory,
@@ -81,7 +80,13 @@ export class Workspace {
         agentId: m.agentId // MOMO-50: Load agent ID
       }))
       
-      // Wire persistence handler
+      // MOMO-51: Ensure session exists in SessionStore
+      const existingSession = sessionStore.getSession(sessionId)
+      if (!existingSession) {
+        sessionStore.createSession(sessionId, 'New Chat', { participants: [this.path] })
+      }
+      
+      // Wire persistence handler — persist both message and session timestamp
       session.on('persist', (message) => {
         messageStore.save({
           id: message.id,
@@ -91,11 +96,15 @@ export class Workspace {
           content: message.content,
           status: message.status,
           createdAt: message.timestamp,
+          timestamp: message.timestamp,
           toolCalls: message.toolCalls,
           error: message.error,
           errorCategory: message.errorCategory,
           agentId: message.agentId // MOMO-50: Persist agent ID
         })
+        
+        // MOMO-51: Touch session updated_at on every message persist
+        sessionStore.touchSession(sessionId)
       })
       
       this.sessions.set(sessionId, session)
