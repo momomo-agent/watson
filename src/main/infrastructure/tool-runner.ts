@@ -56,8 +56,14 @@ export class ToolRunner {
         return this.fileRead(tool.input, options)
       case 'file_write':
         return this.fileWrite(tool.input, options)
+      case 'file_edit':
+        return this.fileEdit(tool.input, options)
       case 'shell_exec':
         return this.shellExec(tool.input, options)
+      case 'process':
+        return this.process(tool.input, options)
+      case 'web_fetch':
+        return this.webFetch(tool.input, options)
       case 'notify':
         return this.notify(tool.input)
       case 'search':
@@ -163,7 +169,44 @@ export class ToolRunner {
     }
   }
 
+  private static async fileEdit(input: any, options: any): Promise<ToolResult> {
+    try {
+      const { readFileSync, writeFileSync } = await import('fs')
+      const { resolve, isAbsolute } = await import('path')
+      
+      const fullPath = isAbsolute(input.path)
+        ? input.path
+        : resolve(options.workspacePath, input.path)
+      
+      const content = readFileSync(fullPath, 'utf8')
+      const idx = content.indexOf(input.old_text)
+      
+      if (idx === -1) {
+        return { success: false, error: `old_text not found in ${input.path}` }
+      }
+      
+      const secondIdx = content.indexOf(input.old_text, idx + 1)
+      if (secondIdx !== -1) {
+        return { success: false, error: `old_text found multiple times in ${input.path}` }
+      }
+      
+      const newContent = content.slice(0, idx) + input.new_text + content.slice(idx + input.old_text.length)
+      writeFileSync(fullPath, newContent, 'utf8')
+      
+      return { success: true, output: `File edited: ${input.path}` }
+    } catch (error: any) {
+      return { success: false, error: `Edit failed: ${error.message}` }
+    }
+  }
+
   private static async shellExec(input: any, options: any): Promise<ToolResult> {
+    // Background mode
+    if (input.background) {
+      const { startBackground } = await import('./process-manager')
+      const sessionId = startBackground(input.command, options.workspacePath)
+      return { success: true, output: `Background process started: ${sessionId}\nUse process tool to check status.` }
+    }
+
     return new Promise((resolve) => {
       const { spawn } = require('child_process')
       
@@ -210,6 +253,65 @@ export class ToolRunner {
         setTimeout(() => proc.kill('SIGKILL'), 5000)
       })
     })
+  }
+
+  private static async process(input: any, options: any): Promise<ToolResult> {
+    try {
+      const pm = await import('./process-manager')
+      
+      switch (input.action) {
+        case 'list':
+          return { success: true, output: JSON.stringify(pm.listSessions(), null, 2) }
+        case 'poll':
+          if (!input.sessionId) return { success: false, error: 'sessionId required' }
+          const status = pm.poll(input.sessionId)
+          return status ? { success: true, output: JSON.stringify(status, null, 2) } : { success: false, error: 'Session not found' }
+        case 'log':
+          if (!input.sessionId) return { success: false, error: 'sessionId required' }
+          const log = pm.getLog(input.sessionId, { offset: input.offset, limit: input.limit })
+          return log ? { success: true, output: JSON.stringify(log, null, 2) } : { success: false, error: 'Session not found' }
+        case 'kill':
+          if (!input.sessionId) return { success: false, error: 'sessionId required' }
+          return pm.kill(input.sessionId) ? { success: true, output: 'Process killed' } : { success: false, error: 'Process not found' }
+        default:
+          return { success: false, error: `Unknown action: ${input.action}` }
+      }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  }
+
+  private static async webFetch(input: any, options: any): Promise<ToolResult> {
+    try {
+      const maxChars = input.maxChars || 50000
+      const response = await fetch(input.url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
+        signal: AbortSignal.timeout(15000)
+      })
+      
+      if (!response.ok) {
+        return { success: false, error: `HTTP ${response.status}` }
+      }
+      
+      const contentType = response.headers.get('content-type') || ''
+      const html = await response.text()
+      
+      if (!contentType.includes('html')) {
+        return { success: true, output: html.slice(0, maxChars) }
+      }
+      
+      // Simple HTML to text conversion
+      const text = html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      
+      return { success: true, output: text.slice(0, maxChars) }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
   }
 
   private static async notify(input: any): Promise<ToolResult> {

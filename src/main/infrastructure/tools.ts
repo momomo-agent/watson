@@ -25,14 +25,54 @@ export const BUILTIN_TOOLS = [
     }
   },
   {
+    name: 'file_edit',
+    description: 'Edit a file by replacing exact text. The old_text must match exactly (including whitespace).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Relative path to the file' },
+        old_text: { type: 'string', description: 'Exact text to find and replace' },
+        new_text: { type: 'string', description: 'New text to replace with' }
+      },
+      required: ['path', 'old_text', 'new_text']
+    }
+  },
+  {
     name: 'shell_exec',
     description: 'Execute a shell command in the workspace.',
     input_schema: {
       type: 'object',
       properties: {
-        command: { type: 'string', description: 'Shell command to execute' }
+        command: { type: 'string', description: 'Shell command to execute' },
+        background: { type: 'boolean', description: 'Run in background for long-running commands' }
       },
       required: ['command']
+    }
+  },
+  {
+    name: 'process',
+    description: 'Manage background processes: list, poll, log, kill.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'poll', 'log', 'kill'], description: 'Action to perform' },
+        sessionId: { type: 'string', description: 'Session ID (for poll/log/kill)' },
+        offset: { type: 'number', description: 'Log offset (for log)' },
+        limit: { type: 'number', description: 'Max log lines (for log, default 50)' }
+      },
+      required: ['action']
+    }
+  },
+  {
+    name: 'web_fetch',
+    description: 'Fetch and convert a web page to markdown.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'URL to fetch' },
+        maxChars: { type: 'number', description: 'Max characters (default 50000)' }
+      },
+      required: ['url']
     }
   },
   {
