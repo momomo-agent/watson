@@ -51,6 +51,8 @@ export interface Message {
   toolCalls?: ToolCallInfo[]
   /** Current tool round (for UI progress display) */
   toolRound?: number
+  /** Agent ID for multi-agent support (MOMO-50) */
+  agentId?: string
 }
 
 export interface StreamChunk {
@@ -131,7 +133,7 @@ export class ChatSession extends EventEmitter {
     this.emit('persist', message)
   }
 
-  async sendMessage(text: string): Promise<string> {
+  async sendMessage(text: string, agentId?: string): Promise<string> {
     // Create user message
     const userMsg: Message = {
       id: this.generateId(),
@@ -151,6 +153,7 @@ export class ChatSession extends EventEmitter {
       content: '',
       timestamp: Date.now(),
       status: 'pending',
+      agentId, // MOMO-50: Track which agent is responding
     }
     this.messages.push(assistantMsg)
     this.persistMessage(assistantMsg)

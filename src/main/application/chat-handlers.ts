@@ -35,15 +35,29 @@ export function registerChatHandlers(mainWindow: BrowserWindow, mcpManager: McpM
   // 设置 MCP 管理器到 workspace manager
   workspaceManager.setMcpManager(mcpManager)
   
-  ipcMain.handle('chat:send', async (_event, { sessionId, text, workspacePath }) => {
+  ipcMain.handle('chat:send', async (_event, { sessionId, text, workspacePath, agentId }) => {
     try {
       const workspace = workspaceManager.getOrCreate(workspacePath || process.cwd())
       const session = workspace.getOrCreateSession(sessionId)
+      const agentManager = workspace.getAgentManager()
+
+      // MOMO-50: Parse @mention from text
+      let finalAgentId = agentId
+      const mentionedAgentId = agentManager.parseAgentMention(text)
+      if (mentionedAgentId) {
+        finalAgentId = mentionedAgentId
+        text = agentManager.stripAgentMention(text)
+      }
+
+      // If no agent specified, use default
+      if (!finalAgentId) {
+        finalAgentId = agentManager.getDefaultAgent().id
+      }
 
       // Attach listener once per session
       ensureSessionListener(session, sessionId, mainWindow)
 
-      await session.sendMessage(text)
+      await session.sendMessage(text, finalAgentId)
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
@@ -98,6 +112,75 @@ export function registerChatHandlers(mainWindow: BrowserWindow, mcpManager: McpM
     try {
       const context = await captureCurrentWindow()
       return { success: true, data: context }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // MOMO-50: Agent management handlers
+  ipcMain.handle('agent:list', async (_event, { workspacePath }) => {
+    try {
+      const workspace = workspaceManager.getOrCreate(workspacePath || process.cwd())
+      const agentManager = workspace.getAgentManager()
+      return { success: true, agents: agentManager.listAgents() }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('agent:get', async (_event, { workspacePath, agentId }) => {
+    try {
+      const workspace = workspaceManager.getOrCreate(workspacePath || process.cwd())
+      const agentManager = workspace.getAgentManager()
+      const agent = agentManager.getAgent(agentId)
+      if (!agent) {
+        return { success: false, error: 'Agent not found' }
+      }
+      return { success: true, agent }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('agent:add', async (_event, { workspacePath, agent }) => {
+    try {
+      const workspace = workspaceManager.getOrCreate(workspacePath || process.cwd())
+      const agentManager = workspace.getAgentManager()
+      agentManager.addAgent(agent)
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('agent:update', async (_event, { workspacePath, agentId, updates }) => {
+    try {
+      const workspace = workspaceManager.getOrCreate(workspacePath || process.cwd())
+      const agentManager = workspace.getAgentManager()
+      agentManager.updateAgent(agentId, updates)
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('agent:remove', async (_event, { workspacePath, agentId }) => {
+    try {
+      const workspace = workspaceManager.getOrCreate(workspacePath || process.cwd())
+      const agentManager = workspace.getAgentManager()
+      agentManager.removeAgent(agentId)
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('agent:setDefault', async (_event, { workspacePath, agentId }) => {
+    try {
+      const workspace = workspaceManager.getOrCreate(workspacePath || process.cwd())
+      const agentManager = workspace.getAgentManager()
+      agentManager.setDefaultAgent(agentId)
+      return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }
     }

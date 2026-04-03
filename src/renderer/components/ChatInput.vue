@@ -1,22 +1,27 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
+import AgentSelector from './AgentSelector.vue'
+import AgentManager from './AgentManager.vue'
 
 const props = defineProps<{
   disabled?: boolean
+  workspacePath: string
 }>()
 
 const emit = defineEmits<{
-  send: [text: string]
+  send: [text: string, agentId?: string]
 }>()
 
 const input = ref('')
 const textarea = ref<HTMLTextAreaElement | null>(null)
 const capturing = ref(false)
+const selectedAgentId = ref<string>()
+const showAgentManager = ref(false)
 
 const handleSend = () => {
   const text = input.value.trim()
   if (!text || props.disabled) return
-  emit('send', text)
+  emit('send', text, selectedAgentId.value)
   input.value = ''
   // Reset textarea height
   nextTick(() => {
@@ -59,10 +64,28 @@ const handleCapture = async () => {
     capturing.value = false
   }
 }
+
+const handleAgentSelect = (agentId: string) => {
+  selectedAgentId.value = agentId
+}
+
+const handleManageAgents = () => {
+  showAgentManager.value = true
+}
+
+const handleCloseManager = () => {
+  showAgentManager.value = false
+}
 </script>
 
 <template>
   <div class="chat-input">
+    <AgentSelector
+      :workspace-path="workspacePath"
+      :selected-agent-id="selectedAgentId"
+      @select="handleAgentSelect"
+      @manage="handleManageAgents"
+    />
     <button 
       class="capture-btn" 
       @click="handleCapture" 
@@ -75,7 +98,7 @@ const handleCapture = async () => {
       ref="textarea"
       v-model="input"
       :disabled="disabled"
-      placeholder="Send a message... (Shift+Enter for newline)"
+      placeholder="Send a message... (Shift+Enter for newline, @agent to mention)"
       @keydown="handleKeydown"
       @input="handleInput"
       rows="1"
@@ -83,6 +106,13 @@ const handleCapture = async () => {
     <button @click="handleSend" :disabled="disabled || !input.trim()">
       {{ disabled ? '...' : 'Send' }}
     </button>
+
+    <AgentManager
+      :show="showAgentManager"
+      :workspace-path="workspacePath"
+      @close="handleCloseManager"
+      @update="handleCloseManager"
+    />
   </div>
 </template>
 

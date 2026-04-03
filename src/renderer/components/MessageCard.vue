@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import type { Message, ToolCallInfo } from '../composables/useChatSession'
 import { translateToolCall } from '../utils/tool-translator'
 import { renderMarkdown } from '../utils/markdown'
@@ -14,6 +14,28 @@ const emit = defineEmits<{
   retry: []
 }>()
 
+// MOMO-50: Load agent info if message has agentId
+const agentInfo = ref<{ name: string; avatar: string; color: string } | null>(null)
+
+onMounted(async () => {
+  if (props.message.agentId && props.message.role === 'assistant') {
+    try {
+      const result = await window.electron.ipcRenderer.invoke('agent:get', {
+        workspacePath: process.cwd(),
+        agentId: props.message.agentId
+      })
+      if (result.success && result.agent) {
+        agentInfo.value = {
+          name: result.agent.name,
+          avatar: result.agent.avatar || '🤖',
+          color: result.agent.color || '#3b82f6'
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load agent info:', err)
+    }
+  }
+})
 const canCancel = () => ['streaming', 'pending', 'tool_calling'].includes(props.message.status)
 const canRetry = () => ['error', 'cancelled'].includes(props.message.status)
 
@@ -109,7 +131,16 @@ const toolsSummary = computed(() => {
 
 <template>
   <div class="message-card" :class="[message.role, message.status]">
-    <div class="role-label">{{ message.role === 'user' ? 'You' : 'Watson' }}</div>
+    <div class="message-header">
+      <div class="role-info">
+        <span v-if="agentInfo" class="agent-avatar" :style="{ color: agentInfo.color }">
+          {{ agentInfo.avatar }}
+        </span>
+        <div class="role-label">
+          {{ message.role === 'user' ? 'You' : (agentInfo?.name || 'Watson') }}
+        </div>
+      </div>
+    </div>
 
     <div class="content" v-if="message.content" v-html="renderedContent" @click="handleContentClick"></div>
 
@@ -205,11 +236,28 @@ const toolsSummary = computed(() => {
   border-left: 3px solid var(--accent-color);
 }
 
+.message-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.role-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.agent-avatar {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
 .role-label {
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.8px;
 }

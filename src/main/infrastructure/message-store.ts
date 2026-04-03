@@ -14,6 +14,7 @@ export interface Message {
   toolCalls?: any[]
   error?: string
   errorCategory?: string
+  agentId?: string // MOMO-50: Multi-agent support
 }
 
 export class MessageStore {
@@ -41,15 +42,16 @@ export class MessageStore {
         created_at INTEGER,
         tool_calls TEXT,
         error TEXT,
-        error_category TEXT
+        error_category TEXT,
+        agent_id TEXT
       )
     `)
   }
 
   save(message: Message) {
     const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO messages (id, session_id, workspace_id, role, content, status, created_at, tool_calls, error, error_category)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO messages (id, session_id, workspace_id, role, content, status, created_at, tool_calls, error, error_category, agent_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     stmt.run(
       message.id,
@@ -61,7 +63,8 @@ export class MessageStore {
       message.createdAt,
       message.toolCalls ? JSON.stringify(message.toolCalls) : null,
       message.error || null,
-      message.errorCategory || null
+      message.errorCategory || null,
+      message.agentId || null
     )
   }
 
@@ -80,7 +83,8 @@ export class MessageStore {
       createdAt: row.created_at,
       toolCalls: row.tool_calls ? JSON.parse(row.tool_calls) : undefined,
       error: row.error || undefined,
-      errorCategory: row.error_category || undefined
+      errorCategory: row.error_category || undefined,
+      agentId: row.agent_id || undefined
     }))
   }
 

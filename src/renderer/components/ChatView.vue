@@ -48,8 +48,8 @@ watch(messages, (msgs) => {
   }
 }, { deep: true })
 
-const handleSend = async (text: string) => {
-  await chatSessionRef.value.sendMessage(text)
+const handleSend = async (text: string, agentId?: string) => {
+  await chatSessionRef.value.sendMessage(text, agentId)
 }
 
 const handleCancel = (msgId: string) => {
@@ -84,6 +84,7 @@ const handleRetry = (msgId: string) => {
 
     <ChatInput
       :disabled="isLoading"
+      :workspace-path="process.cwd()"
       @send="handleSend"
     />
 

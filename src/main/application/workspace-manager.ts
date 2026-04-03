@@ -5,6 +5,7 @@
  * Injects dependencies via constructor/factory pattern.
  *
  * MOMO-34: Now injects ToolRunner.execute as the toolExecutor for the agentic tool loop.
+ * MOMO-50: Multi-agent support via AgentManager.
  */
 
 import { ChatSession, type LLMStreamFn, type ErrorRecoveryCallbacks, type ToolExecutorFn } from '../domain/chat-session'
@@ -16,6 +17,7 @@ import { McpManager } from '../infrastructure/mcp-manager'
 import { BUILTIN_TOOLS } from '../infrastructure/tools'
 import { buildSystemPrompt } from '../infrastructure/prompt-builder'
 import { MessageStore } from '../infrastructure/message-store'
+import { AgentManager, type AgentConfig } from '../infrastructure/agent-manager'
 
 const messageStore = new MessageStore()
 
@@ -45,10 +47,16 @@ export class Workspace {
   path: string
   sessions = new Map<string, ChatSession>()
   private mcpManager: McpManager | null
+  private agentManager: AgentManager
 
   constructor(path: string, mcpManager: McpManager | null = null) {
     this.path = path
     this.mcpManager = mcpManager
+    this.agentManager = new AgentManager(path)
+  }
+
+  getAgentManager(): AgentManager {
+    return this.agentManager
   }
 
   getOrCreateSession(sessionId: string): ChatSession {
@@ -69,7 +77,8 @@ export class Workspace {
         status: m.status as any,
         error: m.error,
         errorCategory: m.errorCategory,
-        toolCalls: m.toolCalls
+        toolCalls: m.toolCalls,
+        agentId: m.agentId // MOMO-50: Load agent ID
       }))
       
       // Wire persistence handler
@@ -84,7 +93,8 @@ export class Workspace {
           createdAt: message.timestamp,
           toolCalls: message.toolCalls,
           error: message.error,
-          errorCategory: message.errorCategory
+          errorCategory: message.errorCategory,
+          agentId: message.agentId // MOMO-50: Persist agent ID
         })
       })
       
@@ -96,27 +106,53 @@ export class Workspace {
   private createLLMStream(): LLMStreamFn {
     const workspacePath = this.path
     const mcpManager = this.mcpManager
+    const agentManager = this.agentManager
     return async function* (messages, signal) {
       const config = loadConfig(workspacePath)
 
+      // MOMO-50: Check if the last assistant message has an agentId
+      // If so, use that agent's configuration
+      let agentConfig: AgentConfig | undefined
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'assistant' && (messages[i] as any).agentId) {
+          agentConfig = agentManager.getAgent((messages[i] as any).agentId)
+          break
+        }
+      }
+
+      // Merge agent config with workspace config
+      const provider = agentConfig?.provider || config.provider
+      const apiKey = agentConfig?.apiKey || config.apiKey
+      const baseUrl = agentConfig?.baseUrl || config.baseUrl
+      const model = agentConfig?.model || config.model
+
       // Merge built-in tools and MCP tools
-      const tools = [...BUILTIN_TOOLS]
+      let tools = [...BUILTIN_TOOLS]
       if (mcpManager) {
         tools.push(...mcpManager.listTools())
       }
 
-      // Build system prompt from workspace files + tools
-      const systemPrompt = buildSystemPrompt(workspacePath, tools)
+      // Filter tools if agent has tool restrictions
+      if (agentConfig?.tools && agentConfig.tools.length > 0) {
+        const allowedTools = new Set(agentConfig.tools)
+        tools = tools.filter(t => allowedTools.has(t.name))
+      }
+
+      // Build system prompt from workspace files + tools + agent-specific prompt
+      let systemPrompt = buildSystemPrompt(workspacePath, tools)
+      if (agentConfig?.systemPrompt) {
+        systemPrompt = `${agentConfig.systemPrompt}\n\n${systemPrompt}`
+      }
 
       // Use the resilient streaming method with retry + failover
       const stream = EnhancedLLMClient.streamChatWithRetry(
         {
           messages,
           signal,
-          provider: config.provider,
-          apiKey: config.apiKey,
-          baseUrl: config.baseUrl,
-          model: config.model,
+          provider,
+          apiKey,
+          baseUrl,
+          model,
           system: systemPrompt,
           tools,
         },

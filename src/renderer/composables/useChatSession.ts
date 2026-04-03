@@ -29,6 +29,7 @@ export interface Message {
   errorRetryable?: boolean
   toolCalls?: ToolCallInfo[]
   toolRound?: number
+  agentId?: string // MOMO-50: Multi-agent support
 }
 
 export function useChatSession(sessionId: string) {
@@ -73,14 +74,14 @@ export function useChatSession(sessionId: string) {
     }
   })
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (text: string, agentId?: string) => {
     if (!text.trim()) return
 
     isLoading.value = true
     error.value = null
 
     try {
-      const result = await window.api.invoke('chat:send', { sessionId, text })
+      const result = await window.api.invoke('chat:send', { sessionId, text, agentId })
       if (result && !result.success) {
         error.value = result.error || 'Failed to send message'
       }
