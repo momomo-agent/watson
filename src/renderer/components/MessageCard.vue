@@ -52,6 +52,23 @@ const toggleTools = () => {
   isToolsExpanded.value = !isToolsExpanded.value
 }
 
+// 代码复制功能
+const handleCopyCode = (event: Event) => {
+  const btn = event.currentTarget as HTMLButtonElement
+  const code = btn.getAttribute('data-code')
+  if (!code) return
+  
+  navigator.clipboard.writeText(code).then(() => {
+    const textSpan = btn.querySelector('.copy-text')
+    if (textSpan) {
+      textSpan.textContent = 'Copied!'
+      setTimeout(() => {
+        textSpan.textContent = 'Copy'
+      }, 2000)
+    }
+  })
+}
+
 // 工具调用摘要
 const toolsSummary = computed(() => {
   if (!hasTools.value) return ''
@@ -71,7 +88,7 @@ const toolsSummary = computed(() => {
   <div class="message-card" :class="[message.role, message.status]">
     <div class="role-label">{{ message.role === 'user' ? 'You' : 'Watson' }}</div>
 
-    <div class="content" v-if="message.content" v-html="renderedContent"></div>
+    <div class="content" v-if="message.content" v-html="renderedContent" @click="handleCopyCode"></div>
 
     <!-- 工具调用显示 -->
     <div v-if="hasTools" class="tool-loop-container">
@@ -181,17 +198,96 @@ const toolsSummary = computed(() => {
   text-decoration: underline;
 }
 
-.content :deep(pre) {
+/* 代码块容器 */
+.content :deep(.code-block-wrapper) {
+  margin: 0.75rem 0;
+  border-radius: 8px;
+  overflow: hidden;
   background: var(--code-bg, #0d1117);
-  border-radius: 6px;
-  padding: 1rem;
-  overflow-x: auto;
-  margin: 0.5rem 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.content :deep(code) {
-  font-family: 'Monaco', 'Menlo', monospace;
-  font-size: 0.9em;
+/* 代码块头部 */
+.content :deep(.code-block-header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.content :deep(.code-lang) {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.content :deep(.code-copy-btn) {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.2s;
+}
+
+.content :deep(.code-copy-btn:hover) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.content :deep(.code-copy-btn svg) {
+  flex-shrink: 0;
+}
+
+/* 代码块主体 */
+.content :deep(.code-block-wrapper pre) {
+  margin: 0;
+  padding: 0.75rem;
+  background: transparent;
+  overflow-x: auto;
+}
+
+.content :deep(.code-block-wrapper code) {
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  display: block;
+}
+
+/* 代码行 */
+.content :deep(.code-line) {
+  display: flex;
+  min-height: 1.5em;
+}
+
+.content :deep(.line-number) {
+  display: inline-block;
+  width: 2.5rem;
+  text-align: right;
+  padding-right: 1rem;
+  color: rgba(255, 255, 255, 0.3);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.content :deep(.line-content) {
+  flex: 1;
+  padding-right: 1rem;
+}
+
+/* 行高亮（hover） */
+.content :deep(.code-line:hover) {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .content :deep(p) {
