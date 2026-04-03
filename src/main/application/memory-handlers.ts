@@ -3,9 +3,9 @@ import { ipcMain } from 'electron'
 import * as memoryIndex from '../infrastructure/memory-index'
 
 export function registerMemoryHandlers() {
-  ipcMain.handle('memory:buildIndex', async (_, workspaceDir: string) => {
+  ipcMain.handle('memory:buildIndex', async (_, workspaceDir: string, config?: { apiKey?: string; baseUrl?: string }) => {
     try {
-      const count = memoryIndex.buildIndex(workspaceDir)
+      const count = await memoryIndex.buildIndex(workspaceDir, config)
       return { success: true, count }
     } catch (error) {
       return { success: false, error: (error as Error).message }
@@ -14,7 +14,7 @@ export function registerMemoryHandlers() {
 
   ipcMain.handle('memory:search', async (_, workspaceDir: string, query: string, maxResults?: number) => {
     try {
-      const results = memoryIndex.search(workspaceDir, query, maxResults)
+      const results = await memoryIndex.search(workspaceDir, query, maxResults)
       return { success: true, results }
     } catch (error) {
       return { success: false, error: (error as Error).message }
@@ -23,7 +23,7 @@ export function registerMemoryHandlers() {
 
   ipcMain.handle('memory:indexFile', async (_, workspaceDir: string, relPath: string) => {
     try {
-      memoryIndex.indexFile(workspaceDir, relPath)
+      await memoryIndex.indexFile(workspaceDir, relPath)
       return { success: true }
     } catch (error) {
       return { success: false, error: (error as Error).message }

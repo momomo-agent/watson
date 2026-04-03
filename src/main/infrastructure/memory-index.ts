@@ -6,6 +6,14 @@ import Database from 'better-sqlite3'
 
 let db: Database.Database | null = null
 let dbPath: string | null = null
+let embeddingProvider: EmbeddingProvider | null = null
+
+interface EmbeddingProvider {
+  id: string
+  dims: number
+  embed: (text: string) => Promise<number[]>
+  embedBatch: (texts: string[]) => Promise<number[][]>
+}
 
 // ── DB Init ──
 export function getDb(workspaceDir: string): Database.Database {
@@ -52,6 +60,7 @@ function initTables(db: Database.Database) {
       end_line INTEGER NOT NULL,
       text TEXT NOT NULL,
       embedding BLOB,
+      model TEXT,
       FOREIGN KEY (file_path) REFERENCES files(path) ON DELETE CASCADE
     )
   `)
@@ -95,6 +104,42 @@ export function collectMemoryFiles(workspaceDir: string): string[] {
   return files
 }
 
+// ── Embedding Provider ──
+export async function initEmbeddingProvider(config?: { apiKey?: string; baseUrl?: string }): Promise<void> {
+  // Fallback to OpenAI-compatible API
+  if (config?.apiKey) {
+    const baseUrl = config.baseUrl || 'https://api.openai.com/v1'
+    const model = 'text-embedding-3-small'
+    embeddingProvider = {
+      id: 'openai',
+      dims: 1536,
+      embed: async (text: string) => {
+        const res = await fetch(`${baseUrl}/embeddings`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, input: text }),
+          signal: AbortSignal.timeout(10000),
+        })
+        const data = await res.json()
+        return data.data?.[0]?.embedding || []
+      },
+      embedBatch: async (texts: string[]) => {
+        const res = await fetch(`${baseUrl}/embeddings`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, input: texts }),
+          signal: AbortSignal.timeout(30000),
+        })
+        const data = await res.json()
+        return (data.data || []).sort((a: any, b: any) => a.index - b.index).map((d: any) => d.embedding)
+      }
+    }
+    console.log('[memory-index] OpenAI embedding provider ready')
+  } else {
+    console.warn('[memory-index] No embedding provider configured, using FTS5 only')
+  }
+}
+
 function fileHash(content: string): string {
   return crypto.createHash('sha256').update(content).digest('hex').slice(0, 16)
 }
@@ -122,7 +167,7 @@ function chunkText(text: string): Chunk[] {
 }
 
 // ── Indexing ──
-export function indexFile(workspaceDir: string, relPath: string): void {
+export async function indexFile(workspaceDir: string, relPath: string): Promise<void> {
   const db = getDb(workspaceDir)
   const absPath = path.join(workspaceDir, relPath)
   
@@ -143,10 +188,23 @@ export function indexFile(workspaceDir: string, relPath: string): void {
   db.prepare('INSERT OR REPLACE INTO files (path, hash, mtime, size) VALUES (?, ?, ?, ?)').run(relPath, hash, stat.mtimeMs, stat.size)
 
   const chunks = chunkText(content)
-  const insertChunk = db.prepare('INSERT INTO chunks (file_path, start_line, end_line, text, embedding) VALUES (?, ?, ?, ?, ?)')
+  const insertChunk = db.prepare('INSERT INTO chunks (file_path, start_line, end_line, text, embedding, model) VALUES (?, ?, ?, ?, ?, ?)')
 
   for (const chunk of chunks) {
-    insertChunk.run(relPath, chunk.startLine, chunk.endLine, chunk.text, null)
+    let embedding: Buffer | null = null
+    let model: string | null = null
+    
+    if (embeddingProvider && chunk.text.trim()) {
+      try {
+        const vec = await embeddingProvider.embed(chunk.text)
+        embedding = Buffer.from(new Float32Array(vec).buffer)
+        model = embeddingProvider.id
+      } catch (e) {
+        console.warn(`[memory-index] Embedding failed for ${relPath}:${chunk.startLine}:`, (e as Error).message)
+      }
+    }
+    
+    insertChunk.run(relPath, chunk.startLine, chunk.endLine, chunk.text, embedding, model)
   }
 
   // Rebuild FTS
@@ -156,12 +214,23 @@ export function indexFile(workspaceDir: string, relPath: string): void {
       db.prepare('INSERT INTO chunks_fts(rowid, text) VALUES (?, ?)').run(row.id, row.text)
     }
   } catch {}
+
+  // Insert into vector table
+  if (embeddingProvider) {
+    try {
+      const rows = db.prepare('SELECT id, embedding FROM chunks WHERE file_path = ? AND embedding IS NOT NULL').all(relPath) as Array<{ id: number, embedding: Buffer }>
+      for (const row of rows) {
+        db.prepare('INSERT INTO chunks_vec(embedding, chunk_id) VALUES (?, ?)').run(row.embedding, row.id)
+      }
+    } catch {}
+  }
 }
 
-export function buildIndex(workspaceDir: string): number {
+export async function buildIndex(workspaceDir: string, config?: { apiKey?: string; baseUrl?: string }): Promise<number> {
+  await initEmbeddingProvider(config)
   const files = collectMemoryFiles(workspaceDir)
   for (const file of files) {
-    indexFile(workspaceDir, file)
+    await indexFile(workspaceDir, file)
   }
   return files.length
 }
@@ -176,7 +245,7 @@ export interface SearchResult {
   source: 'fts' | 'vector' | 'hybrid'
 }
 
-export function search(workspaceDir: string, query: string, maxResults = 10): SearchResult[] {
+export async function search(workspaceDir: string, query: string, maxResults = 10): Promise<SearchResult[]> {
   const db = getDb(workspaceDir)
   const results = new Map<number, SearchResult>()
 
@@ -208,6 +277,48 @@ export function search(workspaceDir: string, query: string, maxResults = 10): Se
       })
     }
   } catch {}
+
+  // Vector search (if embedding available)
+  if (embeddingProvider) {
+    try {
+      const qVec = await embeddingProvider.embed(query)
+      const qBuf = Buffer.from(new Float32Array(qVec).buffer)
+      const vecRows = db.prepare(`
+        SELECT chunk_id, distance FROM chunks_vec
+        WHERE embedding MATCH ? ORDER BY distance LIMIT ?
+      `).all(qBuf, maxResults * 2) as Array<{ chunk_id: number; distance: number }>
+      
+      for (const vr of vecRows) {
+        const chunk = db.prepare('SELECT file_path, start_line, end_line, text FROM chunks WHERE id = ?').get(vr.chunk_id) as {
+          file_path: string
+          start_line: number
+          end_line: number
+          text: string
+        } | undefined
+        
+        if (!chunk) continue
+        
+        const cosineScore = 1 - vr.distance // distance → similarity
+        const existing = results.get(vr.chunk_id)
+        
+        if (existing) {
+          existing.score = existing.score + cosineScore * 2 // boost hybrid matches
+          existing.source = 'hybrid'
+        } else {
+          results.set(vr.chunk_id, {
+            path: chunk.file_path,
+            startLine: chunk.start_line,
+            endLine: chunk.end_line,
+            score: cosineScore,
+            snippet: chunk.text.slice(0, 200),
+            source: 'vector'
+          })
+        }
+      }
+    } catch (e) {
+      console.warn('[memory-index] Vector search error:', (e as Error).message)
+    }
+  }
 
   return [...results.values()]
     .sort((a, b) => b.score - a.score)
