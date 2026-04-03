@@ -1,6 +1,7 @@
 // skill-parser.ts — Frontmatter parser for SKILL.md
 import * as fs from 'fs';
 import * as path from 'path';
+import * as yaml from 'js-yaml';
 
 export interface SkillMetadata {
   name: string;
@@ -43,64 +44,16 @@ export function parseFrontmatter(content: string): { frontmatter: Record<string,
     return { frontmatter: {}, body: content };
   }
 
-  const fmLines = lines.slice(startIdx + 1, endIdx);
+  const fmText = lines.slice(startIdx + 1, endIdx).join('\n');
   const body = lines.slice(endIdx + 1).join('\n');
 
-  const frontmatter: Record<string, any> = {};
-  let currentKey: string | null = null;
-  let currentValue = '';
-
-  const commitKV = () => {
-    if (currentKey !== null) {
-      const val = currentValue.trim();
-      frontmatter[currentKey] = parseValue(currentKey, val);
-      currentKey = null;
-      currentValue = '';
-    }
-  };
-
-  for (const line of fmLines) {
-    if (currentKey !== null && /^(?:  |\t)/.test(line)) {
-      currentValue += ' ' + line.trim();
-      continue;
-    }
-
-    const match = line.match(/^([\w-]+):\s*(.*)$/);
-    if (match) {
-      commitKV();
-      currentKey = match[1];
-      currentValue = match[2];
-      continue;
-    }
-
-    if (line.trim() === '') {
-      commitKV();
-    }
+  try {
+    const frontmatter = yaml.load(fmText) as Record<string, any> || {};
+    return { frontmatter, body };
+  } catch (error) {
+    console.error('Failed to parse frontmatter:', error);
+    return { frontmatter: {}, body: content };
   }
-  commitKV();
-
-  return { frontmatter, body };
-}
-
-function parseValue(key: string, value: string): any {
-  if (!value) return key === 'install' ? [] : '';
-
-  if (key === 'metadata' && value.startsWith('{')) {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  }
-
-  if (value.startsWith('[') && value.endsWith(']')) {
-    return value.slice(1, -1).split(',').map(v => v.trim()).filter(Boolean);
-  }
-
-  if (value === 'true') return true;
-  if (value === 'false') return false;
-
-  return value;
 }
 
 export function loadSkillMetadata(skillDir: string): SkillMetadata | null {
