@@ -16,6 +16,81 @@ const workspaceManager = new WorkspaceManager()
 // Track which sessions have listeners attached
 const attachedListeners = new Set<string>()
 
+/**
+ * MOMO-52: Handle message routing to coding agent.
+ * Creates user message, streams coding agent response, and updates UI.
+ */
+async function handleCodingAgentMessage(
+  workspace: any,
+  session: any,
+  sessionId: string,
+  text: string,
+  agent: any,
+  mainWindow: BrowserWindow
+) {
+  // Create user message
+  const userMsg = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+    role: 'user',
+    content: text,
+    timestamp: Date.now(),
+    status: 'complete',
+  }
+  session.messages.push(userMsg)
+  session.emit('persist', userMsg)
+  session.emit('update')
+
+  // Create assistant message placeholder
+  const assistantMsg = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+    role: 'assistant',
+    content: '',
+    timestamp: Date.now(),
+    status: 'streaming',
+    agentId: agent.id,
+  }
+  session.messages.push(assistantMsg)
+  session.emit('persist', assistantMsg)
+  session.emit('update')
+
+  // Create abort controller
+  const controller = new AbortController()
+  session.activeRequests?.set(assistantMsg.id, controller)
+
+  try {
+    // Route to coding agent with streaming
+    const result = await workspace.routeToCodingAgent(agent, text, {
+      sessionId,
+      signal: controller.signal,
+      onToken: (token: string) => {
+        assistantMsg.content += token
+        session.emit('persist', assistantMsg)
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('chat:update', {
+            sessionId,
+            messages: JSON.parse(JSON.stringify(session.messages))
+          })
+        }
+      }
+    })
+
+    // Mark as complete
+    assistantMsg.status = 'complete'
+    session.emit('persist', assistantMsg)
+    session.emit('update')
+
+    return { success: true }
+  } catch (error: any) {
+    assistantMsg.status = 'error'
+    assistantMsg.error = error.message
+    session.emit('persist', assistantMsg)
+    session.emit('update')
+    return { success: false, error: error.message }
+  } finally {
+    session.activeRequests?.delete(assistantMsg.id)
+  }
+}
+
 function ensureSessionListener(session: any, sessionId: string, mainWindow: BrowserWindow) {
   const key = `${sessionId}`
   if (attachedListeners.has(key)) return
@@ -52,6 +127,13 @@ export function registerChatHandlers(mainWindow: BrowserWindow, mcpManager: McpM
       // If no agent specified, use default
       if (!finalAgentId) {
         finalAgentId = agentManager.getDefaultAgent().id
+      }
+
+      // MOMO-52: Check if this is a coding agent
+      const agent = agentManager.getAgent(finalAgentId)
+      if (agent?.type === 'coding-agent') {
+        // Route to coding agent
+        return await handleCodingAgentMessage(workspace, session, sessionId, text, agent, mainWindow)
       }
 
       // Attach listener once per session
@@ -180,6 +262,26 @@ export function registerChatHandlers(mainWindow: BrowserWindow, mcpManager: McpM
       const workspace = workspaceManager.getOrCreate(workspacePath || process.cwd())
       const agentManager = workspace.getAgentManager()
       agentManager.setDefaultAgent(agentId)
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // MOMO-52: Coding agent management handlers
+  ipcMain.handle('coding-agent:list', async () => {
+    try {
+      const codingAgentManager = workspaceManager.getCodingAgentManager()
+      return { success: true, agents: codingAgentManager.listAvailable() }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('coding-agent:init', async (_event, { configs }) => {
+    try {
+      const codingAgentManager = workspaceManager.getCodingAgentManager()
+      codingAgentManager.init(configs)
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }

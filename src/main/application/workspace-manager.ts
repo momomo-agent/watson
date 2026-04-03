@@ -19,10 +19,13 @@ import { BUILTIN_TOOLS } from '../infrastructure/tools'
 import { buildSystemPrompt } from '../infrastructure/prompt-builder'
 import { messageStore, sessionStore } from './persistence-handlers'
 import { AgentManager, type AgentConfig } from '../infrastructure/agent-manager'
+import { CodingAgentManager, type CodingAgentConfig } from '../infrastructure/coding-agent-manager'
+import { CodingAgentExecutor } from '../infrastructure/coding-agent-executor'
 
 export class WorkspaceManager {
   private workspaces = new Map<string, Workspace>()
   private mcpManager: McpManager | null = null
+  private codingAgentManager = new CodingAgentManager()
 
   setMcpManager(manager: McpManager) {
     this.mcpManager = manager
@@ -30,9 +33,13 @@ export class WorkspaceManager {
     ToolRunner.setMcpManager(manager)
   }
 
+  getCodingAgentManager(): CodingAgentManager {
+    return this.codingAgentManager
+  }
+
   getOrCreate(workspacePath: string): Workspace {
     if (!this.workspaces.has(workspacePath)) {
-      this.workspaces.set(workspacePath, new Workspace(workspacePath, this.mcpManager))
+      this.workspaces.set(workspacePath, new Workspace(workspacePath, this.mcpManager, this.codingAgentManager))
     }
     return this.workspaces.get(workspacePath)!
   }
@@ -47,15 +54,54 @@ export class Workspace {
   sessions = new Map<string, ChatSession>()
   private mcpManager: McpManager | null
   private agentManager: AgentManager
+  private codingAgentManager: CodingAgentManager
 
-  constructor(path: string, mcpManager: McpManager | null = null) {
+  constructor(path: string, mcpManager: McpManager | null = null, codingAgentManager: CodingAgentManager) {
     this.path = path
     this.mcpManager = mcpManager
     this.agentManager = new AgentManager(path)
+    this.codingAgentManager = codingAgentManager
   }
 
   getAgentManager(): AgentManager {
     return this.agentManager
+  }
+
+  /**
+   * MOMO-52: Route message to coding agent.
+   * Returns a streaming response from the coding agent.
+   */
+  async routeToCodingAgent(
+    agentConfig: AgentConfig,
+    message: string,
+    options: { sessionId: string; signal?: AbortSignal; onToken?: (text: string) => void }
+  ): Promise<string> {
+    if (!agentConfig.codingAgentId) {
+      throw new Error('Agent does not have a coding agent ID')
+    }
+
+    const codingConfig = this.codingAgentManager.getConfig(agentConfig.codingAgentId)
+    if (!codingConfig) {
+      throw new Error(`Coding agent '${agentConfig.codingAgentId}' not found`)
+    }
+
+    if (!this.codingAgentManager.isAvailable(agentConfig.codingAgentId)) {
+      throw new Error(`Coding agent '${agentConfig.codingAgentId}' is not available`)
+    }
+
+    const binPath = this.codingAgentManager.getBinPath(agentConfig.codingAgentId)
+    const executor = new CodingAgentExecutor()
+
+    try {
+      const result = await executor.execute(codingConfig, message, binPath, {
+        cwd: this.path,
+        signal: options.signal,
+        onToken: options.onToken,
+      })
+      return result
+    } catch (err: any) {
+      throw new Error(`Coding agent error: ${err.message}`)
+    }
   }
 
   getOrCreateSession(sessionId: string): ChatSession {

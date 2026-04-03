@@ -22,6 +22,9 @@ export interface AgentConfig {
   tools?: string[] // Tool names this agent can use (empty = all tools)
   color?: string // UI color for this agent
   avatar?: string // Emoji or icon
+  // MOMO-52: Coding agent support
+  type?: 'llm' | 'coding-agent' // Agent type
+  codingAgentId?: string // Reference to coding agent config
 }
 
 export interface AgentManagerConfig {
