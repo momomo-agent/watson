@@ -15,6 +15,9 @@ import { loadConfig } from '../infrastructure/config'
 import { McpManager } from '../infrastructure/mcp-manager'
 import { BUILTIN_TOOLS } from '../infrastructure/tools'
 import { buildSystemPrompt } from '../infrastructure/prompt-builder'
+import { MessageStore } from '../infrastructure/message-store'
+
+const messageStore = new MessageStore()
 
 export class WorkspaceManager {
   private workspaces = new Map<string, Workspace>()
@@ -54,10 +57,38 @@ export class Workspace {
       const llmStream = this.createLLMStream()
       const recovery = this.createErrorRecovery(config.model)
       const toolExecutor = this.createToolExecutor()
-      this.sessions.set(
-        sessionId,
-        new ChatSession(sessionId, this.path, llmStream, recovery, toolExecutor)
-      )
+      const session = new ChatSession(sessionId, this.path, llmStream, recovery, toolExecutor)
+      
+      // Load persisted messages
+      const savedMessages = messageStore.load(sessionId, this.path)
+      session.messages = savedMessages.map(m => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        timestamp: m.createdAt,
+        status: m.status as any,
+        error: m.error,
+        errorCategory: m.errorCategory,
+        toolCalls: m.toolCalls
+      }))
+      
+      // Wire persistence handler
+      session.on('persist', (message) => {
+        messageStore.save({
+          id: message.id,
+          sessionId,
+          workspaceId: this.path,
+          role: message.role,
+          content: message.content,
+          status: message.status,
+          createdAt: message.timestamp,
+          toolCalls: message.toolCalls,
+          error: message.error,
+          errorCategory: message.errorCategory
+        })
+      })
+      
+      this.sessions.set(sessionId, session)
     }
     return this.sessions.get(sessionId)!
   }

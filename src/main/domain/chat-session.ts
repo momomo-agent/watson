@@ -104,6 +104,7 @@ export class ChatSession extends EventEmitter {
   private llmStream: LLMStreamFn
   private toolExecutor?: ToolExecutorFn
   private recovery?: ErrorRecoveryCallbacks
+  private persistenceEnabled: boolean = true
 
   constructor(
     id: string,
@@ -120,6 +121,16 @@ export class ChatSession extends EventEmitter {
     this.toolExecutor = toolExecutor
   }
 
+  async loadMessages(): Promise<void> {
+    // Messages will be loaded by the workspace manager
+  }
+
+  private persistMessage(message: Message): void {
+    if (!this.persistenceEnabled) return
+    // Emit persistence event that will be handled by workspace manager
+    this.emit('persist', message)
+  }
+
   async sendMessage(text: string): Promise<string> {
     // Create user message
     const userMsg: Message = {
@@ -130,6 +141,7 @@ export class ChatSession extends EventEmitter {
       status: 'complete',
     }
     this.messages.push(userMsg)
+    this.persistMessage(userMsg)
     this.emit('update')
 
     // Create assistant message placeholder
@@ -141,6 +153,7 @@ export class ChatSession extends EventEmitter {
       status: 'pending',
     }
     this.messages.push(assistantMsg)
+    this.persistMessage(assistantMsg)
     this.emit('update')
 
     // Execute the request (streaming) with tool loop + error recovery
@@ -197,6 +210,7 @@ export class ChatSession extends EventEmitter {
       message.status = 'streaming'
       message.toolCalls = []
       message.toolRound = 0
+      this.persistMessage(message)
       this.emit('update')
 
       // Build the internal history for LLM (includes tool interactions from THIS turn)
@@ -239,6 +253,7 @@ export class ChatSession extends EventEmitter {
           if (chunk.type === 'text' && chunk.text) {
             textContent += chunk.text
             message.content += chunk.text
+            this.persistMessage(message)
             this.emit('update')
           }
 
@@ -251,6 +266,7 @@ export class ChatSession extends EventEmitter {
               input: chunk.tool.input,
               status: 'pending',
             })
+            this.persistMessage(message)
             this.emit('update')
           }
 
@@ -259,6 +275,7 @@ export class ChatSession extends EventEmitter {
             if (chunk.stopReason !== 'tool_use' && toolUses.length === 0) {
               // Pure text response — conversation turn complete
               message.status = 'complete'
+              this.persistMessage(message)
               this.emit('update')
               return
             }
@@ -270,6 +287,7 @@ export class ChatSession extends EventEmitter {
         // No tool calls → done
         if (toolUses.length === 0) {
           message.status = 'complete'
+          this.persistMessage(message)
           this.emit('update')
           return
         }
@@ -277,6 +295,7 @@ export class ChatSession extends EventEmitter {
         // ── Tool Loop: Execute tools and continue ──
 
         message.status = 'tool_calling'
+        this.persistMessage(message)
         this.emit('update')
 
         // Build assistant content blocks for this round
@@ -312,6 +331,7 @@ export class ChatSession extends EventEmitter {
                 toolCallInfo.status = 'blocked'
                 toolCallInfo.error = loopCheck.reason || 'Loop detected'
               }
+              this.persistMessage(message)
               this.emit('update')
 
               // Add blocked result to turn history
@@ -334,6 +354,7 @@ export class ChatSession extends EventEmitter {
           // 2. Execute the tool
           if (toolCallInfo) {
             toolCallInfo.status = 'running'
+            this.persistMessage(message)
             this.emit('update')
           }
 
@@ -369,6 +390,7 @@ export class ChatSession extends EventEmitter {
             toolCallInfo.status = toolResult.success ? 'complete' : 'error'
             toolCallInfo.output = toolResult.output
             toolCallInfo.error = toolResult.error
+            this.persistMessage(message)
             this.emit('update')
           }
 
@@ -393,6 +415,7 @@ export class ChatSession extends EventEmitter {
         // Clear text accumulator for next round (content already appended to message.content)
         // Continue loop — next iteration will call LLM with the tool results
         message.status = 'streaming'
+        this.persistMessage(message)
         this.emit('update')
       }
 
@@ -400,6 +423,7 @@ export class ChatSession extends EventEmitter {
       if (controller.signal.aborted) {
         message.status = 'cancelled'
         message.content = message.content || '(cancelled)'
+        this.persistMessage(message)
         this.emit('update')
         return
       }
@@ -407,6 +431,7 @@ export class ChatSession extends EventEmitter {
       // Hit max rounds — do one final LLM call WITHOUT tools to get a text summary
       console.warn(`[chat-session] Hit max tool rounds (${MAX_TOOL_ROUNDS}). Making final text-only call.`)
       message.status = 'streaming'
+      this.persistMessage(message)
       this.emit('update')
 
       let finalHistory = [
@@ -427,16 +452,19 @@ export class ChatSession extends EventEmitter {
         if (controller.signal.aborted) break
         if (chunk.type === 'text' && chunk.text) {
           message.content += chunk.text
+          this.persistMessage(message)
           this.emit('update')
         }
       }
 
       message.status = controller.signal.aborted ? 'cancelled' : 'complete'
+      this.persistMessage(message)
       this.emit('update')
     } catch (error: any) {
       if (controller.signal.aborted) {
         message.status = 'cancelled'
         message.content = message.content || '(cancelled)'
+        this.persistMessage(message)
         this.emit('update')
         return
       }
@@ -450,6 +478,7 @@ export class ChatSession extends EventEmitter {
             message.status = 'pending'
             message.content = ''
             message.toolCalls = []
+            this.persistMessage(message)
             this.emit('update')
             this.activeRequests.delete(message.id)
 
@@ -462,6 +491,7 @@ export class ChatSession extends EventEmitter {
             message.status = 'pending'
             message.content = ''
             message.toolCalls = []
+            this.persistMessage(message)
             this.emit('update')
             this.activeRequests.delete(message.id)
             return this.executeRequest(message, retryCount + 1)
@@ -481,6 +511,7 @@ export class ChatSession extends EventEmitter {
         message.status = 'error'
         message.error = error.message || 'Unknown error'
       }
+      this.persistMessage(message)
       this.emit('update')
     } finally {
       this.activeRequests.delete(message.id)

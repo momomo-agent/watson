@@ -8,11 +8,11 @@ export function registerPersistenceHandlers(window: BrowserWindow) {
     messageStore.save(message)
   })
 
-  ipcMain.handle('messages:load', (_, workspaceId: string) => {
-    return messageStore.load(workspaceId)
+  ipcMain.handle('messages:load', (_, { sessionId, workspaceId }) => {
+    return messageStore.load(sessionId, workspaceId)
   })
 
-  ipcMain.handle('messages:clear', (_, workspaceId: string) => {
-    messageStore.clear(workspaceId)
+  ipcMain.handle('messages:clear', (_, { sessionId, workspaceId }) => {
+    messageStore.clear(sessionId, workspaceId)
   })
 }

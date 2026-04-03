@@ -10,10 +10,10 @@ const { currentSessionId, updateSessionMessage } = useSession()
 const sessionId = computed(() => currentSessionId.value || 'main')
 
 // Reactive chat session that updates when sessionId changes
-let chatSession = useChatSession(sessionId.value)
-const messages = computed(() => chatSession.messages.value)
-const isLoading = computed(() => chatSession.isLoading.value)
-const error = computed(() => chatSession.error.value)
+const chatSessionRef = ref(useChatSession(sessionId.value))
+const messages = computed(() => chatSessionRef.value.messages.value)
+const isLoading = computed(() => chatSessionRef.value.isLoading.value)
+const error = computed(() => chatSessionRef.value.error.value)
 
 const messagesContainer = ref<HTMLElement | null>(null)
 
@@ -26,7 +26,7 @@ const appStatus = computed(() => {
 
 // Recreate chat session when sessionId changes
 watch(sessionId, (newId) => {
-  chatSession = useChatSession(newId)
+  chatSessionRef.value = useChatSession(newId)
 })
 
 // Auto-scroll to bottom when messages update
@@ -49,15 +49,15 @@ watch(messages, (msgs) => {
 }, { deep: true })
 
 const handleSend = async (text: string) => {
-  await chatSession.sendMessage(text)
+  await chatSessionRef.value.sendMessage(text)
 }
 
 const handleCancel = (msgId: string) => {
-  chatSession.cancel(msgId)
+  chatSessionRef.value.cancel(msgId)
 }
 
 const handleRetry = (msgId: string) => {
-  chatSession.retry(msgId)
+  chatSessionRef.value.retry(msgId)
 }
 </script>
 

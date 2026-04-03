@@ -50,6 +50,21 @@ export function registerChatHandlers(mainWindow: BrowserWindow, mcpManager: McpM
     }
   })
 
+  ipcMain.handle('chat:load', async (_event, { sessionId, workspacePath }) => {
+    try {
+      const workspace = workspaceManager.getOrCreate(workspacePath || process.cwd())
+      const session = workspace.getOrCreateSession(sessionId)
+      
+      // Attach listener once per session
+      ensureSessionListener(session, sessionId, mainWindow)
+      
+      // Return loaded messages
+      return { success: true, messages: session.messages }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
   ipcMain.handle('chat:cancel', async (_event, { sessionId, messageId, workspacePath }) => {
     try {
       const workspace = workspaceManager.getOrCreate(workspacePath || process.cwd())

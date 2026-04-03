@@ -48,7 +48,20 @@ export function useChatSession(sessionId: string) {
     }
   }
 
+  const loadMessages = async () => {
+    try {
+      const result = await window.api.invoke('chat:load', { sessionId })
+      if (result.success && result.messages) {
+        messages.value = result.messages
+      }
+    } catch (err: any) {
+      console.error('Failed to load messages:', err)
+    }
+  }
+
   onMounted(() => {
+    // Load messages first
+    loadMessages()
     // Use the cleanup function returned by on()
     cleanup = window.api.on('chat:update', handleUpdate)
   })
