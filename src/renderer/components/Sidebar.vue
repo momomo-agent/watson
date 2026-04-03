@@ -2,10 +2,12 @@
 import { ref, onMounted } from 'vue'
 import { useSession } from '../composables/useSession'
 import { useWorkspace } from '../composables/useWorkspace'
+import { useUnread } from '../composables/useUnread'
 import SettingsPanel from './SettingsPanel.vue'
 
 const { sessions, currentSessionId, loadSessions, createSession, switchSession, deleteSession, renameSession } = useSession()
 const { currentWorkspace } = useWorkspace()
+const { getCount, clearUnread } = useUnread()
 const showSettings = ref(false)
 const renaming = ref<string | null>(null)
 const renameText = ref('')
@@ -22,6 +24,8 @@ const handleNew = () => {
 
 const handleSwitch = (id: string) => {
   switchSession(id)
+  // MOMO-56: Clear unread count when switching to a session
+  clearUnread(id)
 }
 
 const handleDelete = (id: string, event: Event) => {
@@ -90,6 +94,9 @@ const formatTime = (ts: number) => {
             </span>
             <span v-else class="session-title" @dblclick="startRename(session.id, $event)">
               {{ session.title }}
+            </span>
+            <span v-if="getCount(session.id) > 0" class="unread-badge">
+              {{ getCount(session.id) > 99 ? '99+' : getCount(session.id) }}
             </span>
             <span class="session-time">{{ formatTime(session.updatedAt) }}</span>
           </div>
@@ -227,6 +234,23 @@ const formatTime = (ts: number) => {
   font-size: 0.75rem;
   color: var(--text-secondary);
   margin-left: 0.5rem;
+}
+
+.unread-badge {
+  background: #4a9eff;
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  margin-left: 0.375rem;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .session-subtitle {

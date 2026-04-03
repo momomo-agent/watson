@@ -2,11 +2,13 @@
 import { ref, watch, nextTick, computed } from 'vue'
 import { useChatSession } from '../composables/useChatSession'
 import { useSession } from '../composables/useSession'
+import { useUnread } from '../composables/useUnread'
 import MessageCard from './MessageCard.vue'
 import ChatInput from './ChatInput.vue'
 import StatusIndicator from './StatusIndicator.vue'
 
 const { currentSessionId, updateSessionMessage } = useSession()
+const { clearUnread } = useUnread()
 const sessionId = computed(() => currentSessionId.value || 'main')
 
 // Reactive chat session that updates when sessionId changes
@@ -25,9 +27,14 @@ const appStatus = computed(() => {
 })
 
 // Recreate chat session when sessionId changes
-watch(sessionId, (newId) => {
-  chatSessionRef.value = useChatSession(newId)
-})
+watch(sessionId, (newId, oldId) => {
+  // Don't recreate on initial mount (already created above)
+  if (oldId !== undefined) {
+    chatSessionRef.value = useChatSession(newId)
+  }
+  // MOMO-56: Clear unread and set active session when switching
+  clearUnread(newId)
+}, { immediate: true })
 
 // Auto-scroll to bottom when messages update
 watch(messages, async () => {

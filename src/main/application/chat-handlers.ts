@@ -10,11 +10,15 @@ import { WorkspaceManager } from '../application/workspace-manager'
 import { captureCurrentWindow } from '../infrastructure/screen-capture'
 import { McpManager } from '../infrastructure/mcp-manager'
 import { BUILTIN_TOOLS } from '../infrastructure/tools'
+import { incrementUnread } from './tray-handlers'
 
 const workspaceManager = new WorkspaceManager()
 
 // Track which sessions have listeners attached
 const attachedListeners = new Set<string>()
+
+// MOMO-56: Track the currently active session in the renderer
+let activeSessionId: string | null = null
 
 /**
  * MOMO-52: Handle message routing to coding agent.
@@ -95,11 +99,45 @@ function ensureSessionListener(session: any, sessionId: string, mainWindow: Brow
   const key = `${sessionId}`
   if (attachedListeners.has(key)) return
 
+  // MOMO-56: Track which message IDs we've already counted as unread.
+  // Pre-populate with existing completed assistant messages so they're not re-counted.
+  const countedMessageIds = new Set<string>()
+  if (session.messages) {
+    for (const msg of session.messages) {
+      if (msg.role === 'assistant' && msg.status === 'complete') {
+        countedMessageIds.add(msg.id)
+      }
+    }
+  }
+
   session.on('update', () => {
     if (!mainWindow.isDestroyed()) {
+      const messages = session.messages || []
+
+      // MOMO-56: Detect newly completed assistant messages → increment unread
+      if (sessionId !== activeSessionId) {
+        for (const msg of messages) {
+          if (
+            msg.role === 'assistant' &&
+            msg.status === 'complete' &&
+            !countedMessageIds.has(msg.id)
+          ) {
+            countedMessageIds.add(msg.id)
+            incrementUnread(sessionId, mainWindow)
+          }
+        }
+      } else {
+        // Active session — just mark as seen without incrementing
+        for (const msg of messages) {
+          if (msg.role === 'assistant' && msg.status === 'complete') {
+            countedMessageIds.add(msg.id)
+          }
+        }
+      }
+
       mainWindow.webContents.send('chat:update', {
         sessionId,
-        messages: JSON.parse(JSON.stringify(session.messages))  // deep clone to avoid reactivity issues
+        messages: JSON.parse(JSON.stringify(messages))  // deep clone to avoid reactivity issues
       })
     }
   })
@@ -109,6 +147,12 @@ function ensureSessionListener(session: any, sessionId: string, mainWindow: Brow
 export function registerChatHandlers(mainWindow: BrowserWindow, mcpManager: McpManager) {
   // 设置 MCP 管理器到 workspace manager
   workspaceManager.setMcpManager(mcpManager)
+
+  // MOMO-56: Track which session the renderer is currently viewing
+  ipcMain.handle('session:set-active', async (_event, { sessionId }: { sessionId: string | null }) => {
+    activeSessionId = sessionId
+    return { success: true }
+  })
   
   ipcMain.handle('chat:send', async (_event, { sessionId, text, workspacePath, agentId }) => {
     try {
@@ -132,6 +176,8 @@ export function registerChatHandlers(mainWindow: BrowserWindow, mcpManager: McpM
       // MOMO-52: Check if this is a coding agent
       const agent = agentManager.getAgent(finalAgentId)
       if (agent?.type === 'coding-agent') {
+        // MOMO-56: Attach listener for unread tracking
+        ensureSessionListener(session, sessionId, mainWindow)
         // Route to coding agent
         return await handleCodingAgentMessage(workspace, session, sessionId, text, agent, mainWindow)
       }

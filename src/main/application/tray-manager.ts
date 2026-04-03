@@ -5,6 +5,7 @@ export class TrayManager {
   private tray: Tray | null = null
   private statusText: string = 'Watson Ready'
   private mainWindow: BrowserWindow | null = null
+  private badgeCount: number = 0
 
   constructor(mainWindow: BrowserWindow) {
     this.mainWindow = mainWindow
@@ -42,12 +43,41 @@ export class TrayManager {
     this.updateMenu()
   }
 
+  /**
+   * MOMO-56: Update the dock badge and tray title with unread count.
+   */
+  setBadgeCount(count: number) {
+    this.badgeCount = count
+
+    // macOS dock badge
+    if (process.platform === 'darwin') {
+      app.dock?.setBadge(count > 0 ? String(count) : '')
+    }
+
+    // Update tray tooltip with count
+    if (this.tray) {
+      const tooltip = count > 0 ? `Watson (${count} unread)` : 'Watson'
+      this.tray.setToolTip(tooltip)
+    }
+
+    // Update tray title (macOS shows this next to tray icon)
+    if (this.tray && process.platform === 'darwin') {
+      this.tray.setTitle(count > 0 ? String(count) : '')
+    }
+
+    this.updateMenu()
+  }
+
   private updateMenu() {
     if (!this.tray) return
 
+    const statusLabel = this.badgeCount > 0
+      ? `${this.statusText} (${this.badgeCount} unread)`
+      : this.statusText
+
     const menu = Menu.buildFromTemplate([
       { 
-        label: this.statusText, 
+        label: statusLabel, 
         enabled: false 
       },
       { type: 'separator' },
