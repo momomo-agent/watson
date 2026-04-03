@@ -6,6 +6,7 @@ import { registerPersistenceHandlers } from './application/persistence-handlers'
 import { registerCodingAgentHandlers } from './application/coding-agent-handlers'
 import { registerMemoryHandlers } from './application/memory-handlers'
 import { registerSettingsHandlers } from './application/settings-handlers'
+import { registerSchedulerHandlers, setSchedulers } from './application/scheduler-handlers'
 import { HeartbeatScheduler } from './application/heartbeat-scheduler'
 import { CronScheduler } from './application/cron-scheduler'
 import { WorkspaceManager } from './domain/workspace-manager'
@@ -49,6 +50,7 @@ function createWindow() {
   registerCodingAgentHandlers(mainWindow)
   registerMemoryHandlers()
   registerSettingsHandlers()
+  registerSchedulerHandlers()
   
   // 设置 MCP 管理器到 ToolRunner
   ToolRunner.setMcpManager(mcpManager)
@@ -80,6 +82,8 @@ function createWindow() {
       console.log('[Cron] Daily cleanup at 2:00 AM')
     })
     cron.start()
+    
+    setSchedulers(heartbeat, cron)
   }
 }
 

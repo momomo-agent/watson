@@ -43,7 +43,15 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   loadConfig: () => ipcRenderer.invoke('settings:load'),
-  saveConfig: (config: any) => ipcRenderer.invoke('settings:save', config)
+  saveConfig: (config: any) => ipcRenderer.invoke('settings:save', config),
+  
+  // Scheduler APIs
+  heartbeatStatus: () => ipcRenderer.invoke('scheduler:heartbeat:status'),
+  heartbeatStart: () => ipcRenderer.invoke('scheduler:heartbeat:start'),
+  heartbeatStop: () => ipcRenderer.invoke('scheduler:heartbeat:stop'),
+  cronList: () => ipcRenderer.invoke('scheduler:cron:list'),
+  cronAdd: (id: string, schedule: string) => ipcRenderer.invoke('scheduler:cron:add', id, schedule),
+  cronRemove: (id: string) => ipcRenderer.invoke('scheduler:cron:remove', id)
 })
 
 // Alias for compatibility

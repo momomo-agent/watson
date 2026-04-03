@@ -30,11 +30,21 @@ const newServerName = ref('')
 const newServerCommand = ref('')
 const newServerArgs = ref('')
 
+const heartbeatRunning = ref(false)
+const cronJobs = ref<Array<{ id: string, schedule: string }>>([])
+const newCronId = ref('')
+const newCronSchedule = ref('')
+
 onMounted(async () => {
   const loaded = await window.api.loadConfig()
   if (loaded) {
     config.value = loaded
   }
+  
+  const status = await window.api.heartbeatStatus()
+  heartbeatRunning.value = status.running
+  
+  cronJobs.value = await window.api.cronList()
 })
 
 const saveConfig = async () => {
@@ -70,6 +80,29 @@ const toggleMcpServer = (name: string) => {
   if (config.value.mcpServers?.[name]) {
     config.value.mcpServers[name].disabled = !config.value.mcpServers[name].disabled
   }
+}
+
+const toggleHeartbeat = async () => {
+  if (heartbeatRunning.value) {
+    await window.api.heartbeatStop()
+    heartbeatRunning.value = false
+  } else {
+    await window.api.heartbeatStart()
+    heartbeatRunning.value = true
+  }
+}
+
+const addCronJob = async () => {
+  if (!newCronId.value || !newCronSchedule.value) return
+  await window.api.cronAdd(newCronId.value, newCronSchedule.value)
+  cronJobs.value = await window.api.cronList()
+  newCronId.value = ''
+  newCronSchedule.value = ''
+}
+
+const removeCronJob = async (id: string) => {
+  await window.api.cronRemove(id)
+  cronJobs.value = await window.api.cronList()
 }
 </script>
 
@@ -134,6 +167,38 @@ const toggleMcpServer = (name: string) => {
             <input v-model="newServerCommand" placeholder="Command" class="input small" />
             <input v-model="newServerArgs" placeholder="Args (space-separated)" class="input small" />
             <button @click="addMcpServer" class="add-btn">Add</button>
+          </div>
+        </section>
+
+        <!-- Heartbeat Scheduler -->
+        <section>
+          <h3>Heartbeat Scheduler</h3>
+          <div class="scheduler-control">
+            <span>Status: {{ heartbeatRunning ? 'Running' : 'Stopped' }}</span>
+            <button @click="toggleHeartbeat" class="toggle-btn" :class="{ disabled: !heartbeatRunning }">
+              {{ heartbeatRunning ? 'Stop' : 'Start' }}
+            </button>
+          </div>
+        </section>
+
+        <!-- Cron Jobs -->
+        <section>
+          <h3>Cron Jobs</h3>
+          
+          <div v-if="cronJobs.length" class="server-list">
+            <div v-for="job in cronJobs" :key="job.id" class="server-item">
+              <div class="server-info">
+                <strong>{{ job.id }}</strong>
+                <code>{{ job.schedule }}</code>
+              </div>
+              <button @click="removeCronJob(job.id)" class="remove-btn">×</button>
+            </div>
+          </div>
+
+          <div class="add-server">
+            <input v-model="newCronId" placeholder="Job ID" class="input small" />
+            <input v-model="newCronSchedule" placeholder="Cron schedule (e.g., 0 2 * * *)" class="input" />
+            <button @click="addCronJob" class="add-btn">Add</button>
           </div>
         </section>
       </div>
@@ -354,6 +419,21 @@ label span {
 
 .add-btn:hover {
   background: #3a3a3a;
+}
+
+.scheduler-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+}
+
+.scheduler-control span {
+  color: #e0e0e0;
+  font-size: 0.875rem;
 }
 
 .footer {

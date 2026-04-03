@@ -17,6 +17,12 @@ export interface IElectronAPI {
   off: (channel: string, callback: (...args: any[]) => void) => void
   loadConfig: () => Promise<Config | null>
   saveConfig: (config: Config) => Promise<boolean>
+  heartbeatStatus: () => Promise<{ running: boolean }>
+  heartbeatStart: () => Promise<void>
+  heartbeatStop: () => Promise<void>
+  cronList: () => Promise<Array<{ id: string, schedule: string }>>
+  cronAdd: (id: string, schedule: string) => Promise<void>
+  cronRemove: (id: string) => Promise<void>
 }
 
 declare global {
