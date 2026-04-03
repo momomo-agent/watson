@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import type { Message, ToolCallInfo } from '../composables/useChatSession'
 import { translateToolCall } from '../utils/tool-translator'
 import { renderMarkdown } from '../utils/markdown'
+import ImagePreview from './ImagePreview.vue'
 
 const props = defineProps<{
   message: Message
@@ -69,6 +70,28 @@ const handleCopyCode = (event: Event) => {
   })
 }
 
+// 图片预览功能
+const previewImageSrc = ref<string | null>(null)
+
+const handleImageClick = (event: Event) => {
+  const target = event.target as HTMLElement
+  if (target.tagName === 'IMG' && target.classList.contains('markdown-image')) {
+    const src = target.getAttribute('data-preview-src')
+    if (src) {
+      previewImageSrc.value = src
+    }
+  }
+}
+
+const closeImagePreview = () => {
+  previewImageSrc.value = null
+}
+
+const handleContentClick = (event: Event) => {
+  handleCopyCode(event)
+  handleImageClick(event)
+}
+
 // 工具调用摘要
 const toolsSummary = computed(() => {
   if (!hasTools.value) return ''
@@ -88,7 +111,16 @@ const toolsSummary = computed(() => {
   <div class="message-card" :class="[message.role, message.status]">
     <div class="role-label">{{ message.role === 'user' ? 'You' : 'Watson' }}</div>
 
-    <div class="content" v-if="message.content" v-html="renderedContent" @click="handleCopyCode"></div>
+    <div class="content" v-if="message.content" v-html="renderedContent" @click="handleContentClick"></div>
+
+    <!-- 图片预览弹窗 -->
+    <Teleport to="body">
+      <ImagePreview
+        v-if="previewImageSrc"
+        :src="previewImageSrc"
+        @close="closeImagePreview"
+      />
+    </Teleport>
 
     <!-- 工具调用显示 -->
     <div v-if="hasTools" class="tool-loop-container">
@@ -297,6 +329,27 @@ const toolsSummary = computed(() => {
 .content :deep(ul), .content :deep(ol) {
   margin: 0.5rem 0;
   padding-left: 1.5rem;
+}
+
+/* 图片样式 */
+.content :deep(.markdown-image) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.75rem 0;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.content :deep(.markdown-image:hover) {
+  border-color: var(--accent-color);
+  box-shadow: 0 4px 12px rgba(74, 158, 255, 0.2);
+  transform: scale(1.02);
+}
+
+.content :deep(.markdown-image:active) {
+  transform: scale(0.98);
 }
 
 /* Tool Loop Container */

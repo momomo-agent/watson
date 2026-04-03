@@ -45,6 +45,10 @@ renderer.link = ({ href, text }: { href: string; text: string }) => {
   return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`
 }
 
+renderer.image = ({ href, text }: { href: string; text?: string }) => {
+  return `<img src="${href}" alt="${text || ''}" class="markdown-image" data-preview-src="${href}" loading="lazy" />`
+}
+
 marked.setOptions({ renderer })
 
 // HTML 转义函数，用于 data 属性
