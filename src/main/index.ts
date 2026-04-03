@@ -8,6 +8,7 @@ import { registerMemoryHandlers } from './application/memory-handlers'
 import { registerSettingsHandlers } from './application/settings-handlers'
 import { registerSchedulerHandlers, setSchedulers } from './application/scheduler-handlers'
 import { registerTrayHandlers } from './application/tray-handlers'
+import { registerFileWatcherHandlers, startFileWatcher, stopAllWatchers } from './application/file-watcher-handlers'
 import { HeartbeatScheduler } from './application/heartbeat-scheduler'
 import { CronScheduler } from './application/cron-scheduler'
 import { TrayManager } from './application/tray-manager'
@@ -67,6 +68,7 @@ function createWindow() {
   registerSettingsHandlers()
   registerSchedulerHandlers()
   registerTrayHandlers(trayManager)
+  registerFileWatcherHandlers(mainWindow)
   
   // 设置 MCP 管理器到 ToolRunner
   ToolRunner.setMcpManager(mcpManager)
@@ -100,6 +102,9 @@ function createWindow() {
     cron.start()
     
     setSchedulers(heartbeat, cron)
+    
+    // MOMO-55: Start file watcher for memory auto-sync
+    startFileWatcher(currentWorkspace, mainWindow)
   }
 }
 
@@ -112,6 +117,7 @@ app.on('before-quit', () => {
 app.on('window-all-closed', () => {
   heartbeat?.stop()
   cron?.stop()
+  stopAllWatchers() // MOMO-55: Clean up file watchers
   // macOS 上保持 app 运行（tray 模式）
   if (process.platform !== 'darwin') {
     app.quit()
