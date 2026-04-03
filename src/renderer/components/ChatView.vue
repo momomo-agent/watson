@@ -1,11 +1,20 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed } from 'vue'
 import { useChatSession } from '../composables/useChatSession'
+import { useSession } from '../composables/useSession'
 import MessageCard from './MessageCard.vue'
 import ChatInput from './ChatInput.vue'
 import StatusIndicator from './StatusIndicator.vue'
 
-const { messages, isLoading, error, sendMessage, cancel, retry } = useChatSession('main')
+const { currentSessionId, updateSessionMessage } = useSession()
+const sessionId = computed(() => currentSessionId.value || 'main')
+
+// Reactive chat session that updates when sessionId changes
+let chatSession = useChatSession(sessionId.value)
+const messages = computed(() => chatSession.messages.value)
+const isLoading = computed(() => chatSession.isLoading.value)
+const error = computed(() => chatSession.error.value)
+
 const messagesContainer = ref<HTMLElement | null>(null)
 
 const appStatus = computed(() => {
@@ -13,6 +22,11 @@ const appStatus = computed(() => {
   if (isLoading.value) return 'thinking'
   if (messages.value.length > 0) return 'complete'
   return 'idle'
+})
+
+// Recreate chat session when sessionId changes
+watch(sessionId, (newId) => {
+  chatSession = useChatSession(newId)
 })
 
 // Auto-scroll to bottom when messages update
@@ -23,8 +37,27 @@ watch(messages, async () => {
   }
 }, { deep: true })
 
+// Update session's last message
+watch(messages, (msgs) => {
+  if (msgs.length > 0 && sessionId.value) {
+    const lastMsg = msgs[msgs.length - 1]
+    if (lastMsg.role === 'assistant' && lastMsg.content) {
+      const preview = lastMsg.content.slice(0, 100)
+      updateSessionMessage(sessionId.value, preview)
+    }
+  }
+}, { deep: true })
+
 const handleSend = async (text: string) => {
-  await sendMessage(text)
+  await chatSession.sendMessage(text)
+}
+
+const handleCancel = (msgId: string) => {
+  chatSession.cancel(msgId)
+}
+
+const handleRetry = (msgId: string) => {
+  chatSession.retry(msgId)
 }
 </script>
 
@@ -40,8 +73,8 @@ const handleSend = async (text: string) => {
         v-for="msg in messages"
         :key="msg.id"
         :message="msg"
-        @cancel="cancel(msg.id)"
-        @retry="retry(msg.id)"
+        @cancel="handleCancel(msg.id)"
+        @retry="handleRetry(msg.id)"
       />
     </div>
 

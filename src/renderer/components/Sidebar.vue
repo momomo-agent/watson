@@ -1,56 +1,105 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useSession } from '../composables/useSession'
 import { useWorkspace } from '../composables/useWorkspace'
 import SettingsPanel from './SettingsPanel.vue'
 
-const { currentWorkspace, workspaces, switchWorkspace, createWorkspace, deleteWorkspace } = useWorkspace()
-const showCreateDialog = ref(false)
+const { sessions, currentSessionId, loadSessions, createSession, switchSession, deleteSession, renameSession } = useSession()
+const { currentWorkspace } = useWorkspace()
 const showSettings = ref(false)
-const newWorkspaceName = ref('')
-const newWorkspacePath = ref('')
+const renaming = ref<string | null>(null)
+const renameText = ref('')
 
-const handleSwitch = async (id: string) => {
-  await switchWorkspace(id)
-}
+onMounted(() => {
+  loadSessions()
+})
 
-const handleCreate = async () => {
-  if (!newWorkspaceName.value || !newWorkspacePath.value) return
-  await createWorkspace(newWorkspaceName.value, newWorkspacePath.value)
-  showCreateDialog.value = false
-  newWorkspaceName.value = ''
-  newWorkspacePath.value = ''
-}
-
-const handleDelete = async (id: string, event: Event) => {
-  event.stopPropagation()
-  if (confirm('Delete this workspace?')) {
-    await deleteWorkspace(id)
+const handleNew = () => {
+  if (currentWorkspace.value) {
+    createSession(currentWorkspace.value.path)
   }
+}
+
+const handleSwitch = (id: string) => {
+  switchSession(id)
+}
+
+const handleDelete = (id: string, event: Event) => {
+  event.stopPropagation()
+  if (confirm('Delete this session?')) {
+    deleteSession(id)
+  }
+}
+
+const startRename = (id: string, event: Event) => {
+  event.stopPropagation()
+  const session = sessions.value.find(s => s.id === id)
+  if (session) {
+    renaming.value = id
+    renameText.value = session.title
+  }
+}
+
+const submitRename = () => {
+  if (renaming.value && renameText.value.trim()) {
+    renameSession(renaming.value, renameText.value.trim())
+  }
+  renaming.value = null
+}
+
+const formatTime = (ts: number) => {
+  const d = new Date(ts)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return '昨天'
+  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 </script>
 
 <template>
   <div class="sidebar">
     <div class="sidebar-header">
-      <h2>Workspaces</h2>
-      <button @click="showCreateDialog = true" class="add-btn">+</button>
+      <h2>Sessions</h2>
+      <button @click="handleNew" class="add-btn">+</button>
     </div>
 
-    <div class="workspace-list">
+    <div class="session-list">
       <div
-        v-for="ws in workspaces"
-        :key="ws.id"
-        @click="handleSwitch(ws.id)"
-        class="workspace-item"
-        :class="{ active: ws.id === currentWorkspace?.id }"
+        v-for="session in sessions"
+        :key="session.id"
+        @click="handleSwitch(session.id)"
+        class="session-item"
+        :class="{ active: session.id === currentSessionId }"
       >
-        <div class="workspace-info">
-          <span class="name">{{ ws.name }}</span>
-          <span class="path">{{ ws.path }}</span>
+        <div class="session-body">
+          <div class="session-row-top">
+            <span v-if="renaming === session.id" class="session-title">
+              <input
+                v-model="renameText"
+                @keydown.enter="submitRename"
+                @keydown.esc="renaming = null"
+                @blur="submitRename"
+                @click.stop
+                autofocus
+                class="rename-input"
+              />
+            </span>
+            <span v-else class="session-title" @dblclick="startRename(session.id, $event)">
+              {{ session.title }}
+            </span>
+            <span class="session-time">{{ formatTime(session.updatedAt) }}</span>
+          </div>
+          <div v-if="session.lastMessage" class="session-subtitle">
+            {{ session.lastMessage }}
+          </div>
         </div>
         <button
-          v-if="workspaces.length > 1"
-          @click="handleDelete(ws.id, $event)"
+          v-if="sessions.length > 1"
+          @click="handleDelete(session.id, $event)"
           class="delete-btn"
         >×</button>
       </div>
@@ -60,25 +109,13 @@ const handleDelete = async (id: string, event: Event) => {
       <button @click="showSettings = true" class="settings-btn">⚙ Settings</button>
     </div>
 
-    <div v-if="showCreateDialog" class="dialog-overlay" @click="showCreateDialog = false">
-      <div class="dialog" @click.stop>
-        <h3>New Workspace</h3>
-        <input v-model="newWorkspaceName" placeholder="Name" class="input" />
-        <input v-model="newWorkspacePath" placeholder="Path" class="input" />
-        <div class="dialog-actions">
-          <button @click="showCreateDialog = false" class="btn-cancel">Cancel</button>
-          <button @click="handleCreate" class="btn-create">Create</button>
-        </div>
-      </div>
-    </div>
-
     <SettingsPanel v-if="showSettings" @close="showSettings = false" />
   </div>
 </template>
 
 <style scoped>
 .sidebar {
-  width: 240px;
+  width: 260px;
   background: #0f0f0f;
   border-right: 1px solid #2a2a2a;
   display: flex;
@@ -123,52 +160,78 @@ const handleDelete = async (id: string, event: Event) => {
   color: #e0e0e0;
 }
 
-.workspace-list {
+.session-list {
   flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
 }
 
-.workspace-item {
+.session-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 0.75rem;
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s;
   margin-bottom: 0.25rem;
+  gap: 0.5rem;
 }
 
-.workspace-item:hover {
+.session-item:hover {
   background: #1a1a1a;
 }
 
-.workspace-item.active {
+.session-item.active {
   background: rgba(74, 158, 255, 0.15);
   border: 1px solid rgba(74, 158, 255, 0.3);
 }
 
-.workspace-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+.session-body {
   flex: 1;
   min-width: 0;
 }
 
-.workspace-info .name {
+.session-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.session-title {
   font-weight: 500;
   color: #e0e0e0;
   font-size: 0.875rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
 }
 
-.workspace-info .path {
+.rename-input {
+  width: 100%;
+  background: #0a0a0a;
+  border: 1px solid #4a9eff;
+  border-radius: 3px;
+  color: #e0e0e0;
+  font-size: 0.875rem;
+  padding: 2px 4px;
+  font-family: inherit;
+}
+
+.rename-input:focus {
+  outline: none;
+}
+
+.session-time {
   font-size: 0.75rem;
   color: #666;
+  margin-left: 0.5rem;
+}
+
+.session-subtitle {
+  font-size: 0.75rem;
+  color: #888;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -187,9 +250,10 @@ const handleDelete = async (id: string, event: Event) => {
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
-.workspace-item:hover .delete-btn {
+.session-item:hover .delete-btn {
   display: flex;
 }
 
@@ -222,85 +286,5 @@ const handleDelete = async (id: string, event: Event) => {
 .settings-btn:hover {
   background: #2a2a2a;
   color: #e0e0e0;
-}
-
-.dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.dialog {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  border-radius: 8px;
-  padding: 1.5rem;
-  width: 400px;
-  max-width: 90vw;
-}
-
-.dialog h3 {
-  margin: 0 0 1rem 0;
-  color: #e0e0e0;
-  font-size: 1rem;
-}
-
-.input {
-  width: 100%;
-  padding: 0.5rem;
-  background: #0a0a0a;
-  border: 1px solid #2a2a2a;
-  border-radius: 4px;
-  color: #e0e0e0;
-  font-size: 0.875rem;
-  margin-bottom: 0.75rem;
-}
-
-.input:focus {
-  outline: none;
-  border-color: #4a9eff;
-}
-
-.dialog-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-  margin-top: 1rem;
-}
-
-.btn-cancel, .btn-create {
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-cancel {
-  background: transparent;
-  border: 1px solid #2a2a2a;
-  color: #888;
-}
-
-.btn-cancel:hover {
-  background: #1a1a1a;
-  color: #e0e0e0;
-}
-
-.btn-create {
-  background: #4a9eff;
-  border: none;
-  color: white;
-}
-
-.btn-create:hover {
-  background: #3a8eef;
 }
 </style>
