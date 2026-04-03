@@ -490,7 +490,13 @@ const toolsSummary = computed(() => {
   font-size: 0.85rem;
   color: var(--text-secondary);
   border: 1px solid rgba(74, 158, 255, 0.2);
-  transition: all 0.3s;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.tool-call:hover {
+  background: rgba(74, 158, 255, 0.18);
+  border-color: rgba(74, 158, 255, 0.4);
 }
 
 .tool-call.running {

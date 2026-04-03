@@ -351,6 +351,13 @@ label span {
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 4px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.server-item:hover {
+  border-color: var(--accent-color);
+  background: rgba(74, 158, 255, 0.05);
 }
 
 .server-info {

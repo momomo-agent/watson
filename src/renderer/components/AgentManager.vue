@@ -316,10 +316,11 @@ onMounted(() => {
 }
 
 .agents-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
+  overflow-x: auto;
 }
 
 .agent-card {
@@ -328,6 +329,13 @@ onMounted(() => {
   border: 1px solid var(--border);
   border-radius: 12px;
   transition: all 0.2s;
+  min-width: 260px;
+  cursor: pointer;
+}
+
+.agent-card:hover {
+  border-color: var(--primary, #4a9eff);
+  background: var(--bg-tertiary, rgba(74, 158, 255, 0.05));
 }
 
 .agent-card.default {

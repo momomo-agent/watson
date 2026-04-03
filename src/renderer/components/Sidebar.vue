@@ -109,6 +109,7 @@ const formatTime = (ts: number) => {
           @click="handleDelete(session.id, $event)"
           class="delete-btn"
         >×</button>
+        <span class="session-chevron">›</span>
       </div>
     </div>
 
@@ -171,21 +172,29 @@ const formatTime = (ts: number) => {
   flex: 1;
   overflow-y: auto;
   padding: 0.5rem;
+  padding-bottom: 2rem;
 }
 
 .session-item {
   display: flex;
   align-items: center;
-  padding: 0.75rem;
+  padding: 0.75rem 0.75rem 0.75rem 0.75rem;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.2s;
-  margin-bottom: 0.25rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  margin-bottom: 0.375rem;
   gap: 0.5rem;
+  border: 1px solid transparent;
+  position: relative;
 }
 
 .session-item:hover {
   background: var(--bg-primary);
+  border-color: var(--border-color);
+}
+
+.session-item:hover .session-chevron {
+  opacity: 1;
 }
 
 .session-item.active {
@@ -256,9 +265,21 @@ const formatTime = (ts: number) => {
 .session-subtitle {
   font-size: 0.75rem;
   color: var(--text-secondary);
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.4;
+  margin-top: 0.125rem;
+}
+
+.session-chevron {
+  opacity: 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease;
+  margin-left: auto;
 }
 
 .delete-btn {
