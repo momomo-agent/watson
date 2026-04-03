@@ -18,7 +18,8 @@ export interface McpServerConfig {
 
 export interface Config {
   provider: 'anthropic' | 'openai'
-  apiKey: string
+  apiKey?: string // Single key (legacy)
+  apiKeys?: string[] // Multiple keys for rotation
   baseUrl?: string
   model?: string
   mcpServers?: Record<string, McpServerConfig>
@@ -31,7 +32,7 @@ export function loadConfig(workspacePath: string): Config {
     try {
       const content = readFileSync(workspaceConfigPath, 'utf8')
       const config = JSON.parse(content) as Config
-      if (config.apiKey) return config
+      if (config.apiKey || config.apiKeys) return normalizeConfig(config)
     } catch {}
   }
 
@@ -41,25 +42,25 @@ export function loadConfig(workspacePath: string): Config {
     if (existsSync(appConfigPath)) {
       const content = readFileSync(appConfigPath, 'utf8')
       const config = JSON.parse(content) as Config
-      if (config.apiKey) return config
+      if (config.apiKey || config.apiKeys) return normalizeConfig(config)
     }
   } catch {}
 
   // 3. Try environment variables
   if (process.env.ANTHROPIC_API_KEY) {
-    return {
+    return normalizeConfig({
       provider: 'anthropic',
       apiKey: process.env.ANTHROPIC_API_KEY,
       model: process.env.WATSON_MODEL || 'claude-sonnet-4-20250514'
-    }
+    })
   }
 
   if (process.env.OPENAI_API_KEY) {
-    return {
+    return normalizeConfig({
       provider: 'openai',
       apiKey: process.env.OPENAI_API_KEY,
       model: process.env.WATSON_MODEL || 'gpt-4'
-    }
+    })
   }
 
   // 4. Try openclaw config as last resort
@@ -75,12 +76,12 @@ export function loadConfig(workspacePath: string): Config {
           if (providerConfig.apiKey) {
             const api = providerConfig.api || ''
             const isAnthropic = api.includes('anthropic') || name.includes('anthropic')
-            return {
+            return normalizeConfig({
               provider: isAnthropic ? 'anthropic' : 'openai',
               apiKey: providerConfig.apiKey,
               baseUrl: providerConfig.baseUrl,
               model: providerConfig.models?.[0] || (isAnthropic ? 'claude-sonnet-4-20250514' : 'gpt-4')
-            }
+            })
           }
         }
       }
@@ -90,4 +91,29 @@ export function loadConfig(workspacePath: string): Config {
   throw new Error(
     'No API key found. Create .watson/config.json or set ANTHROPIC_API_KEY environment variable.'
   )
+}
+
+/**
+ * Normalize config to ensure both apiKey and apiKeys are set.
+ * - If only apiKey exists, create apiKeys array with single key
+ * - If only apiKeys exists, set apiKey to first key
+ * - If both exist, keep both
+ */
+function normalizeConfig(config: Config): Config {
+  if (config.apiKeys && config.apiKeys.length > 0) {
+    // Has apiKeys array — ensure apiKey is set to first key
+    return {
+      ...config,
+      apiKey: config.apiKey || config.apiKeys[0],
+      apiKeys: config.apiKeys
+    }
+  } else if (config.apiKey) {
+    // Has single apiKey — create apiKeys array
+    return {
+      ...config,
+      apiKey: config.apiKey,
+      apiKeys: [config.apiKey]
+    }
+  }
+  return config
 }

@@ -13,10 +13,12 @@
 
 import { LLMClient, type LLMOptions, type StreamChunk } from './llm-client'
 import { classifyError, type ClassifiedError } from './error-classify'
+import { ApiKeyManager } from './api-keys'
 
 export interface ProviderConfig {
   provider: 'anthropic' | 'openai'
-  apiKey: string
+  apiKey?: string // Single key (legacy)
+  apiKeys?: string[] // Multiple keys for rotation
   baseUrl?: string
   model?: string
 }
@@ -43,6 +45,8 @@ export class EnhancedLLMClient {
    * Tries each provider in order. On retryable errors (rate-limit, server, network),
    * retries with exponential backoff before moving to the next provider.
    * On non-retryable errors (auth, billing), skips directly to the next provider.
+   * 
+   * Supports API key rotation within each provider if multiple keys provided.
    */
   static async *streamChatWithFailover(
     options: LLMOptions,
@@ -52,7 +56,8 @@ export class EnhancedLLMClient {
     const configs: ProviderConfig[] = [
       {
         provider: options.provider!,
-        apiKey: options.apiKey!,
+        apiKey: options.apiKey,
+        apiKeys: (options as any).apiKeys,
         baseUrl: options.baseUrl,
         model: options.model,
       },
@@ -61,13 +66,17 @@ export class EnhancedLLMClient {
 
     for (let i = 0; i < configs.length; i++) {
       try {
+        const config = configs[i]
+        const keys = config.apiKeys || (config.apiKey ? [config.apiKey] : [])
+        
         yield* LLMClient.streamChat({
           ...options,
-          provider: configs[i].provider,
-          apiKey: configs[i].apiKey,
-          baseUrl: configs[i].baseUrl,
-          model: configs[i].model,
-        })
+          provider: config.provider,
+          apiKey: keys[0], // Use first key
+          apiKeys: keys,
+          baseUrl: config.baseUrl,
+          model: config.model,
+        } as any)
         return // Success — done
       } catch (error: any) {
         const classified = classifyError(error)
@@ -100,9 +109,10 @@ export class EnhancedLLMClient {
   }
 
   /**
-   * Stream with retry + exponential backoff on a single provider.
+   * Stream with retry + exponential backoff + API key rotation.
    *
    * Retries on rate-limit, server, and network errors.
+   * On rate-limit (429), rotates to next API key if multiple keys available.
    * Does NOT retry auth/billing/context errors.
    */
   static async *streamChatWithRetry(
@@ -112,12 +122,32 @@ export class EnhancedLLMClient {
   ): AsyncGenerator<StreamChunk> {
     let lastError: Error | null = null
 
+    // Initialize key manager if multiple keys provided
+    let keyManager: ApiKeyManager | null = null
+    const keys = (options as any).apiKeys
+    if (keys && Array.isArray(keys) && keys.length > 1) {
+      keyManager = new ApiKeyManager(keys)
+      console.log(`[enhanced-llm] Using ${keys.length} API keys with rotation`)
+    }
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        yield* LLMClient.streamChat(options)
-        return // Success
+        // Use current key from manager if available
+        const currentKey = keyManager ? keyManager.getCurrentKey() : options.apiKey
+        
+        yield* LLMClient.streamChat({
+          ...options,
+          apiKey: currentKey
+        })
+        
+        // Success — record usage
+        keyManager?.recordUsage(true)
+        return
       } catch (error: any) {
         lastError = error
+
+        // Record failure
+        keyManager?.recordUsage(false)
 
         // Never retry aborted requests
         if (options.signal.aborted) throw error
@@ -132,6 +162,26 @@ export class EnhancedLLMClient {
         if (classified.category === 'context') throw error
 
         if (attempt < maxRetries - 1) {
+          // On rate-limit, try rotating key first
+          if (classified.category === 'rate-limit' && keyManager) {
+            const rotated = keyManager.rotate()
+            if (rotated) {
+              console.log(
+                `[enhanced-llm] Rate limit hit, rotated to key ${keyManager.getCurrentIndex() + 1}/${keyManager.getKeyCount()}`
+              )
+              // Retry immediately with new key (no delay)
+              enhanced.onRetry?.({
+                attempt: attempt + 1,
+                maxAttempts: maxRetries,
+                delayMs: 0,
+                reason: `Rate limit - rotated to key ${keyManager.getCurrentIndex() + 1}`,
+                provider: options.provider,
+              })
+              continue
+            }
+          }
+
+          // Standard exponential backoff
           const baseDelay = classified.retryAfterMs || 1000
           const delay = this.addJitter(baseDelay * Math.pow(2, attempt))
           const reason = `${classified.category}: ${classified.short}`
@@ -156,9 +206,9 @@ export class EnhancedLLMClient {
   }
 
   /**
-   * Full resilience: retry + failover + error classification.
+   * Full resilience: retry + failover + error classification + API key rotation.
    *
-   * Tries the primary provider with retries first.
+   * Tries the primary provider with retries first (with key rotation on rate-limit).
    * On exhaustion, fails over to fallback providers.
    */
   static async *streamChatResilient(
@@ -167,7 +217,7 @@ export class EnhancedLLMClient {
     maxRetries: number = 2,
     enhanced: EnhancedOptions = {}
   ): AsyncGenerator<StreamChunk> {
-    // Try primary with retries
+    // Try primary with retries (includes key rotation)
     try {
       yield* this.streamChatWithRetry(options, maxRetries, enhanced)
       return
@@ -187,14 +237,18 @@ export class EnhancedLLMClient {
       // Try each fallback with retries
       for (let i = 0; i < fallbackConfigs.length; i++) {
         try {
+          const config = fallbackConfigs[i]
+          const keys = config.apiKeys || (config.apiKey ? [config.apiKey] : [])
+          
           yield* this.streamChatWithRetry(
             {
               ...options,
-              provider: fallbackConfigs[i].provider,
-              apiKey: fallbackConfigs[i].apiKey,
-              baseUrl: fallbackConfigs[i].baseUrl,
-              model: fallbackConfigs[i].model,
-            },
+              provider: config.provider,
+              apiKey: keys[0],
+              apiKeys: keys,
+              baseUrl: config.baseUrl,
+              model: config.model,
+            } as any,
             maxRetries,
             enhanced
           )
