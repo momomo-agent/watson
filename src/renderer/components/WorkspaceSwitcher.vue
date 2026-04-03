@@ -43,18 +43,17 @@ const handleSwitch = async (id: string) => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  color: #e0e0e0;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 0.875rem;
   transition: all 0.2s;
 }
 
 .current-workspace:hover {
-  background: #2a2a2a;
-  border-color: #3a3a3a;
+  background: var(--bg-secondary);
 }
 
 .workspace-name {
@@ -63,7 +62,7 @@ const handleSwitch = async (id: string) => {
 
 .arrow {
   font-size: 0.7rem;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .workspace-menu {
@@ -71,12 +70,12 @@ const handleSwitch = async (id: string) => {
   top: calc(100% + 0.5rem);
   left: 0;
   min-width: 250px;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 0.5rem;
   z-index: 100;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .workspace-item {
@@ -89,7 +88,7 @@ const handleSwitch = async (id: string) => {
 }
 
 .workspace-item:hover {
-  background: #2a2a2a;
+  background: var(--bg-primary);
 }
 
 .workspace-item.active {
@@ -99,12 +98,12 @@ const handleSwitch = async (id: string) => {
 
 .workspace-item .name {
   font-weight: 500;
-  color: #e0e0e0;
+  color: var(--text-primary);
   margin-bottom: 0.25rem;
 }
 
 .workspace-item .path {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--text-secondary);
 }
 </style>

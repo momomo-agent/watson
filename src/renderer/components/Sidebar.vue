@@ -116,8 +116,8 @@ const formatTime = (ts: number) => {
 <style scoped>
 .sidebar {
   width: 260px;
-  background: #0f0f0f;
-  border-right: 1px solid #2a2a2a;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -128,13 +128,13 @@ const formatTime = (ts: number) => {
   align-items: center;
   justify-content: space-between;
   padding: 1rem;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .sidebar-header h2 {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #888;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin: 0;
@@ -144,9 +144,9 @@ const formatTime = (ts: number) => {
   width: 24px;
   height: 24px;
   border-radius: 4px;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
-  color: #888;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
   font-size: 1.25rem;
   cursor: pointer;
   display: flex;
@@ -156,8 +156,8 @@ const formatTime = (ts: number) => {
 }
 
 .add-btn:hover {
-  background: #2a2a2a;
-  color: #e0e0e0;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .session-list {
@@ -178,7 +178,7 @@ const formatTime = (ts: number) => {
 }
 
 .session-item:hover {
-  background: #1a1a1a;
+  background: var(--bg-primary);
 }
 
 .session-item.active {
@@ -200,7 +200,7 @@ const formatTime = (ts: number) => {
 
 .session-title {
   font-weight: 500;
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-size: 0.875rem;
   white-space: nowrap;
   overflow: hidden;
@@ -210,10 +210,10 @@ const formatTime = (ts: number) => {
 
 .rename-input {
   width: 100%;
-  background: #0a0a0a;
-  border: 1px solid #4a9eff;
+  background: var(--bg-primary);
+  border: 1px solid var(--accent-color);
   border-radius: 3px;
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-size: 0.875rem;
   padding: 2px 4px;
   font-family: inherit;
@@ -225,13 +225,13 @@ const formatTime = (ts: number) => {
 
 .session-time {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--text-secondary);
   margin-left: 0.5rem;
 }
 
 .session-subtitle {
   font-size: 0.75rem;
-  color: #888;
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -243,7 +243,7 @@ const formatTime = (ts: number) => {
   border-radius: 3px;
   background: transparent;
   border: none;
-  color: #666;
+  color: var(--text-secondary);
   font-size: 1.25rem;
   cursor: pointer;
   display: none;
@@ -264,16 +264,16 @@ const formatTime = (ts: number) => {
 
 .sidebar-footer {
   padding: 1rem;
-  border-top: 1px solid #2a2a2a;
+  border-top: 1px solid var(--border-color);
 }
 
 .settings-btn {
   width: 100%;
   padding: 0.75rem;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -284,7 +284,7 @@ const formatTime = (ts: number) => {
 }
 
 .settings-btn:hover {
-  background: #2a2a2a;
-  color: #e0e0e0;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 </style>

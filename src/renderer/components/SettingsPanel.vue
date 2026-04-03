@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useTheme } from '../composables/useTheme'
 
 interface McpServer {
   command: string
@@ -19,6 +20,8 @@ interface Config {
 const emit = defineEmits<{
   close: []
 }>()
+
+const { theme } = useTheme()
 
 const config = ref<Config>({
   provider: 'anthropic',
@@ -115,6 +118,19 @@ const removeCronJob = async (id: string) => {
       </div>
 
       <div class="content">
+        <!-- Appearance -->
+        <section>
+          <h3>Appearance</h3>
+          
+          <label>
+            <span>Theme</span>
+            <select v-model="theme" class="input">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+        </section>
+
         <!-- API Configuration -->
         <section>
           <h3>API Configuration</h3>
@@ -226,8 +242,8 @@ const removeCronJob = async (id: string) => {
 }
 
 .panel {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   width: 600px;
   max-width: 90vw;
@@ -241,12 +257,12 @@ const removeCronJob = async (id: string) => {
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .header h2 {
   margin: 0;
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-size: 1.125rem;
 }
 
@@ -256,15 +272,15 @@ const removeCronJob = async (id: string) => {
   border-radius: 4px;
   background: transparent;
   border: none;
-  color: #888;
+  color: var(--text-secondary);
   font-size: 1.5rem;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .close-btn:hover {
-  background: #2a2a2a;
-  color: #e0e0e0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .content {
@@ -283,7 +299,7 @@ section:last-child {
 
 h3 {
   margin: 0 0 1rem 0;
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-size: 0.875rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -298,22 +314,22 @@ label {
 }
 
 label span {
-  color: #888;
+  color: var(--text-secondary);
   font-size: 0.875rem;
 }
 
 .input {
   padding: 0.5rem;
-  background: #0a0a0a;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-size: 0.875rem;
 }
 
 .input:focus {
   outline: none;
-  border-color: #4a9eff;
+  border-color: var(--accent-color);
 }
 
 .input.small {
@@ -332,8 +348,8 @@ label span {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem;
-  background: #0a0a0a;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
 }
 
@@ -346,12 +362,12 @@ label span {
 }
 
 .server-info strong {
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-size: 0.875rem;
 }
 
 .server-info code {
-  color: #888;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-family: 'Monaco', monospace;
   white-space: nowrap;
@@ -366,21 +382,21 @@ label span {
 
 .toggle-btn {
   padding: 0.25rem 0.75rem;
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  color: #4a9eff;
+  color: var(--accent-color);
   font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .toggle-btn.disabled {
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .toggle-btn:hover {
-  background: #3a3a3a;
+  background: var(--bg-secondary);
 }
 
 .remove-btn {
@@ -388,8 +404,8 @@ label span {
   height: 24px;
   border-radius: 4px;
   background: transparent;
-  border: 1px solid #2a2a2a;
-  color: #888;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
   font-size: 1.25rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -407,10 +423,10 @@ label span {
 
 .add-btn {
   padding: 0.5rem 1rem;
-  background: #2a2a2a;
-  border: 1px solid #3a3a3a;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -418,7 +434,7 @@ label span {
 }
 
 .add-btn:hover {
-  background: #3a3a3a;
+  background: var(--bg-secondary);
 }
 
 .scheduler-control {
@@ -426,13 +442,13 @@ label span {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem;
-  background: #0a0a0a;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
 }
 
 .scheduler-control span {
-  color: #e0e0e0;
+  color: var(--text-primary);
   font-size: 0.875rem;
 }
 
@@ -441,7 +457,7 @@ label span {
   gap: 0.5rem;
   justify-content: flex-end;
   padding: 1rem 1.5rem;
-  border-top: 1px solid #2a2a2a;
+  border-top: 1px solid var(--border-color);
 }
 
 .btn-cancel, .btn-save {
@@ -454,22 +470,22 @@ label span {
 
 .btn-cancel {
   background: transparent;
-  border: 1px solid #2a2a2a;
-  color: #888;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
 }
 
 .btn-cancel:hover {
-  background: #1a1a1a;
-  color: #e0e0e0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .btn-save {
-  background: #4a9eff;
+  background: var(--accent-color);
   border: none;
   color: white;
 }
 
 .btn-save:hover {
-  background: #3a8eef;
+  opacity: 0.9;
 }
 </style>

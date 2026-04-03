@@ -53,14 +53,15 @@ const statusText = computed(() => {
   left: 0;
   margin-bottom: 0.5rem;
   padding: 0.25rem 0.5rem;
-  background: #2a2a2a;
-  color: #f0f0f0;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   font-size: 0.75rem;
   border-radius: 4px;
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s;
+  border: 1px solid var(--border-color);
 }
 
 .status-indicator:hover .dot {

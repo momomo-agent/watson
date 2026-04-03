@@ -97,7 +97,7 @@ const handleRetry = (msgId: string) => {
   flex-direction: column;
   height: 100vh;
   flex: 1;
-  background: #0a0a0a;
+  background: var(--bg-primary);
 }
 
 .messages {
@@ -119,14 +119,14 @@ const handleRetry = (msgId: string) => {
 }
 
 .messages::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
+  background: var(--border-color);
   border-radius: 4px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
 .messages::-webkit-scrollbar-thumb:hover {
-  background: #3a3a3a;
+  background: var(--text-secondary);
   background-clip: padding-box;
 }
 
@@ -136,14 +136,14 @@ const handleRetry = (msgId: string) => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #666;
+  color: var(--text-secondary);
   gap: 0.5rem;
 }
 
 .empty-state p {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .empty-state span {

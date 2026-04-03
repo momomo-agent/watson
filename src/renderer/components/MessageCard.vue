@@ -134,18 +134,18 @@ const toolsSummary = computed(() => {
   padding: 1rem;
   margin-bottom: 1rem;
   border-radius: 12px;
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   transition: border-color 0.2s;
 }
 
 .message-card:hover {
-  border-color: #3a3a3a;
+  border-color: var(--text-secondary);
 }
 
 .message-card.user {
-  background: #1e1e2e;
-  border-color: #2e2e3e;
+  background: var(--msg-user-bg, #1e1e2e);
+  border-color: var(--msg-user-border, #2e2e3e);
 }
 
 .message-card.error {
@@ -153,13 +153,13 @@ const toolsSummary = computed(() => {
 }
 
 .message-card.tool_calling {
-  border-left: 3px solid #4a9eff;
+  border-left: 3px solid var(--accent-color);
 }
 
 .role-label {
   font-size: 0.7rem;
   font-weight: 600;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -169,11 +169,11 @@ const toolsSummary = computed(() => {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.6;
-  color: #e0e0e0;
+  color: var(--text-primary);
 }
 
 .content :deep(a) {
-  color: #4a9eff;
+  color: var(--accent-color);
   text-decoration: none;
 }
 
@@ -182,7 +182,7 @@ const toolsSummary = computed(() => {
 }
 
 .content :deep(pre) {
-  background: #0d1117;
+  background: var(--code-bg, #0d1117);
   border-radius: 6px;
   padding: 1rem;
   overflow-x: auto;
@@ -228,7 +228,7 @@ const toolsSummary = computed(() => {
 
 .tool-loop-icon {
   font-size: 0.7rem;
-  color: #4a9eff;
+  color: var(--accent-color);
   transition: transform 0.3s ease;
   display: inline-block;
 }
@@ -240,13 +240,13 @@ const toolsSummary = computed(() => {
 .tool-loop-summary {
   flex: 1;
   font-size: 0.85rem;
-  color: #aaa;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .tool-round-badge {
   font-size: 0.7rem;
-  color: #666;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 0.2rem 0.5rem;
@@ -291,7 +291,7 @@ const toolsSummary = computed(() => {
   background: rgba(74, 158, 255, 0.1);
   border-radius: 6px;
   font-size: 0.85rem;
-  color: #aaa;
+  color: var(--text-secondary);
   border: 1px solid rgba(74, 158, 255, 0.2);
   transition: all 0.3s;
 }
@@ -344,9 +344,9 @@ const toolsSummary = computed(() => {
   justify-content: space-between;
   margin-top: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px solid #2a2a2a;
+  border-top: 1px solid var(--border-color);
   font-size: 0.75rem;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .status {
@@ -364,11 +364,11 @@ const toolsSummary = computed(() => {
 }
 
 .status.complete {
-  color: #4a9eff;
+  color: var(--accent-color);
 }
 
 .status.tool-calling {
-  color: #4a9eff;
+  color: var(--accent-color);
 }
 
 .dot-pulse {
@@ -376,7 +376,7 @@ const toolsSummary = computed(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #4a9eff;
+  background: var(--accent-color);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -392,18 +392,18 @@ const toolsSummary = computed(() => {
 
 button {
   padding: 0.25rem 0.75rem;
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   background: transparent;
-  color: #999;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.75rem;
   transition: all 0.2s;
 }
 
 button:hover {
-  background: #2a2a2a;
-  color: #e0e0e0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .btn-cancel:hover {
@@ -413,8 +413,8 @@ button:hover {
 }
 
 .btn-retry:hover {
-  border-color: #4a9eff;
-  color: #4a9eff;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
   background: rgba(74, 158, 255, 0.1);
 }
 </style>

@@ -74,13 +74,20 @@ async function onBuildIndex() {
 .search-input {
   flex: 1;
   padding: 0.5rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
 }
 
 .index-btn {
   padding: 0.5rem 1rem;
-  background: #007bff;
+  background: var(--accent-color);
   color: white;
   border: none;
   border-radius: 4px;
@@ -93,15 +100,15 @@ async function onBuildIndex() {
 }
 
 .error {
-  color: #dc3545;
+  color: #ff6b6b;
   padding: 0.5rem;
-  background: #f8d7da;
+  background: rgba(255, 107, 107, 0.1);
   border-radius: 4px;
 }
 
 .loading, .no-results {
   text-align: center;
-  color: #6c757d;
+  color: var(--text-secondary);
   padding: 2rem;
 }
 
@@ -113,9 +120,9 @@ async function onBuildIndex() {
 
 .result-item {
   padding: 0.75rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: #f8f9fa;
+  background: var(--bg-secondary);
 }
 
 .result-header {
@@ -128,22 +135,23 @@ async function onBuildIndex() {
 
 .path {
   font-weight: 600;
-  color: #007bff;
+  color: var(--accent-color);
 }
 
 .location {
-  color: #6c757d;
+  color: var(--text-secondary);
 }
 
 .badge {
   padding: 0.125rem 0.5rem;
-  background: #e9ecef;
+  background: var(--bg-tertiary);
   border-radius: 3px;
   font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
 .snippet {
-  color: #495057;
+  color: var(--text-primary);
   font-size: 0.875rem;
   white-space: pre-wrap;
   overflow: hidden;

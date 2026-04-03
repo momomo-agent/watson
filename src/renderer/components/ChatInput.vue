@@ -91,18 +91,18 @@ const handleCapture = async () => {
   display: flex;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-top: 1px solid #333;
-  background: #1e1e1e;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
   align-items: flex-end;
 }
 
 textarea {
   flex: 1;
   padding: 0.6rem 0.75rem;
-  border: 1px solid #404040;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: #252525;
-  color: #e0e0e0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   font-family: inherit;
   font-size: 0.9rem;
   resize: none;
@@ -114,7 +114,7 @@ textarea {
 
 textarea:focus {
   outline: none;
-  border-color: #4a9eff;
+  border-color: var(--accent-color);
 }
 
 textarea:disabled {
@@ -125,7 +125,7 @@ button {
   padding: 0.6rem 1.25rem;
   border: none;
   border-radius: 6px;
-  background: #4a9eff;
+  background: var(--accent-color);
   color: white;
   cursor: pointer;
   font-weight: 500;
@@ -135,7 +135,7 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background: #3a8eef;
+  opacity: 0.9;
 }
 
 button:disabled {
@@ -146,11 +146,12 @@ button:disabled {
 .capture-btn {
   padding: 0.6rem;
   min-width: 38px;
-  background: #2d2d2d;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   font-size: 1.1rem;
 }
 
 .capture-btn:hover:not(:disabled) {
-  background: #3d3d3d;
+  background: var(--bg-secondary);
 }
 </style>

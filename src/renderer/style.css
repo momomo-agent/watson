@@ -6,9 +6,10 @@
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
-  background: #0a0a0a;
-  color: #f0f0f0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 #app {
