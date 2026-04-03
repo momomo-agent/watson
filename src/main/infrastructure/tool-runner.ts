@@ -88,7 +88,6 @@ export class ToolRunner {
       const { readFileSync, existsSync, statSync } = await import('fs')
       const { resolve, isAbsolute } = await import('path')
       
-      // 安全检查：防止路径遍历
       const fullPath = isAbsolute(input.path) 
         ? input.path 
         : resolve(options.workspacePath, input.path)
@@ -103,6 +102,33 @@ export class ToolRunner {
       }
       
       const content = readFileSync(fullPath, 'utf8')
+      
+      // Handle offset/limit for large files
+      if (input.offset || input.limit) {
+        const lines = content.split('\n')
+        const start = Math.max(0, (input.offset || 1) - 1)
+        const count = input.limit || lines.length
+        const slice = lines.slice(start, start + count)
+        const remaining = lines.length - start - slice.length
+        let result = slice.join('\n')
+        if (remaining > 0) {
+          result += `\n\n[${remaining} more lines. Use offset=${start + slice.length + 1} to continue.]`
+        }
+        return { success: true, output: result }
+      }
+      
+      // Truncate large files
+      const MAX_CHARS = 100000
+      if (content.length > MAX_CHARS) {
+        const lines = content.split('\n')
+        const truncated = content.slice(0, MAX_CHARS)
+        const truncLines = truncated.split('\n').length
+        return { 
+          success: true, 
+          output: truncated + `\n\n[Truncated at ${MAX_CHARS} chars, ${lines.length} total lines. Use offset/limit for the rest.]`
+        }
+      }
+      
       return { success: true, output: content }
     } catch (error: any) {
       return { success: false, error: `Read failed: ${error.message}` }
@@ -203,46 +229,42 @@ export class ToolRunner {
 
   private static async search(input: any, options: any): Promise<ToolResult> {
     try {
-      const https = require('https')
       const apiKey = process.env.TAVILY_API_KEY
       
       if (!apiKey) {
         return { success: false, error: 'TAVILY_API_KEY not set' }
       }
       
-      const data = JSON.stringify({
-        query: input.query,
-        max_results: input.max_results || 5
+      const response = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: apiKey,
+          query: input.query,
+          max_results: input.max_results || 5,
+          include_answer: true
+        })
       })
       
-      return new Promise((resolve) => {
-        const req = https.request({
-          hostname: 'api.tavily.com',
-          path: '/search',
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': data.length
-          }
-        }, (res: any) => {
-          let body = ''
-          res.on('data', (chunk: any) => { body += chunk })
-          res.on('end', () => {
-            if (res.statusCode === 200) {
-              resolve({ success: true, output: body })
-            } else {
-              resolve({ success: false, error: `HTTP ${res.statusCode}: ${body}` })
-            }
-          })
+      if (!response.ok) {
+        return { success: false, error: `HTTP ${response.status}` }
+      }
+      
+      const data = await response.json()
+      let result = ''
+      
+      if (data.answer) {
+        result += `Answer: ${data.answer}\n\n`
+      }
+      
+      if (data.results?.length > 0) {
+        result += 'Results:\n'
+        data.results.forEach((r: any, i: number) => {
+          result += `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.content}\n\n`
         })
-        
-        req.on('error', (err: any) => {
-          resolve({ success: false, error: err.message })
-        })
-        
-        req.write(data)
-        req.end()
-      })
+      }
+      
+      return { success: true, output: result || 'No results found' }
     } catch (error: any) {
       return { success: false, error: error.message }
     }
@@ -299,6 +321,19 @@ export class ToolRunner {
 
   private static async uiStatusSet(input: any): Promise<ToolResult> {
     try {
+      const validLevels = ['idle', 'thinking', 'running', 'need_you', 'done']
+      const level = String(input.level || 'idle')
+      const text = String(input.text || '').trim()
+      const minLen = 4, maxLen = 20
+      
+      if (!validLevels.includes(level)) {
+        return { success: false, error: `Invalid level. Must be one of: ${validLevels.join(', ')}` }
+      }
+      
+      if (text.length < minLen || text.length > maxLen) {
+        return { success: false, error: `Text length must be ${minLen}-${maxLen} chars (got ${text.length})` }
+      }
+      
       const { BrowserWindow } = await import('electron')
       const windows = BrowserWindow.getAllWindows()
       
@@ -308,12 +343,12 @@ export class ToolRunner {
       
       const win = windows[0]
       win.webContents.send('status-update', {
-        status: input.status,
-        message: input.message,
+        level,
+        text,
         timestamp: Date.now()
       })
       
-      return { success: true, output: `Status set: ${input.status}` }
+      return { success: true, output: 'OK' }
     } catch (error: any) {
       return { success: false, error: `Status update failed: ${error.message}` }
     }

@@ -1,11 +1,13 @@
 export const BUILTIN_TOOLS = [
   {
     name: 'file_read',
-    description: 'Read a file from the workspace.',
+    description: 'Read a file from the workspace. Use offset/limit for large files.',
     input_schema: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Relative path to the file' }
+        path: { type: 'string', description: 'Relative path to the file' },
+        offset: { type: 'number', description: 'Line number to start reading from (1-indexed)' },
+        limit: { type: 'number', description: 'Maximum number of lines to read' }
       },
       required: ['path']
     }
@@ -35,11 +37,12 @@ export const BUILTIN_TOOLS = [
   },
   {
     name: 'search',
-    description: 'Search for information (placeholder).',
+    description: 'Search the web using Tavily API.',
     input_schema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Search query' }
+        query: { type: 'string', description: 'Search query' },
+        max_results: { type: 'number', description: 'Maximum number of results (default: 5)' }
       },
       required: ['query']
     }
@@ -66,6 +69,18 @@ export const BUILTIN_TOOLS = [
         message: { type: 'string', description: 'Notification message' }
       },
       required: ['message']
+    }
+  },
+  {
+    name: 'ui_status_set',
+    description: 'Set the status displayed in the UI. Level: idle/thinking/running/need_you/done. Text: 4-20 chars.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        level: { type: 'string', enum: ['idle', 'thinking', 'running', 'need_you', 'done'], description: 'Status level' },
+        text: { type: 'string', description: 'Status text (4-20 characters)' }
+      },
+      required: ['level', 'text']
     }
   },
   {
