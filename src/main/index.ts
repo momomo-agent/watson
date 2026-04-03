@@ -7,8 +7,10 @@ import { registerCodingAgentHandlers } from './application/coding-agent-handlers
 import { registerMemoryHandlers } from './application/memory-handlers'
 import { registerSettingsHandlers } from './application/settings-handlers'
 import { registerSchedulerHandlers, setSchedulers } from './application/scheduler-handlers'
+import { registerTrayHandlers } from './application/tray-handlers'
 import { HeartbeatScheduler } from './application/heartbeat-scheduler'
 import { CronScheduler } from './application/cron-scheduler'
+import { TrayManager } from './application/tray-manager'
 import { WorkspaceManager } from './domain/workspace-manager'
 import { McpManager } from './infrastructure/mcp-manager'
 import { ToolRunner } from './infrastructure/tool-runner'
@@ -16,6 +18,7 @@ import { loadConfig } from './infrastructure/config'
 import { SkillManager } from './domain/skill-manager'
 
 let mainWindow: BrowserWindow | null = null
+let trayManager: TrayManager | null = null
 const workspaceManager = new WorkspaceManager()
 const mcpManager = new McpManager()
 let skillManager: SkillManager | null = null
@@ -30,6 +33,18 @@ function createWindow() {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false
+    }
+  })
+
+  // 初始化 Tray
+  trayManager = new TrayManager(mainWindow)
+  trayManager.initialize()
+
+  // 窗口关闭时隐藏而不是退出（macOS 风格）
+  mainWindow.on('close', (event) => {
+    if (process.platform === 'darwin' && !app.isQuitting) {
+      event.preventDefault()
+      mainWindow?.hide()
     }
   })
 
@@ -51,16 +66,17 @@ function createWindow() {
   registerMemoryHandlers()
   registerSettingsHandlers()
   registerSchedulerHandlers()
+  registerTrayHandlers(trayManager)
   
   // 设置 MCP 管理器到 ToolRunner
   ToolRunner.setMcpManager(mcpManager)
   
+  // 启动调度器和 MCP
+  const currentWorkspace = workspaceManager.getCurrentWorkspace()
+  
   // 初始化 SkillManager
   skillManager = new SkillManager(currentWorkspace)
   ToolRunner.setSkillManager(skillManager)
-  
-  // 启动调度器和 MCP
-  const currentWorkspace = workspaceManager.getCurrentWorkspace()
   if (currentWorkspace) {
     // 加载配置并连接 MCP 服务器
     try {
@@ -89,9 +105,14 @@ function createWindow() {
 
 app.whenReady().then(createWindow)
 
+app.on('before-quit', () => {
+  app.isQuitting = true
+})
+
 app.on('window-all-closed', () => {
   heartbeat?.stop()
   cron?.stop()
+  // macOS 上保持 app 运行（tray 模式）
   if (process.platform !== 'darwin') {
     app.quit()
   }
@@ -100,5 +121,11 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow()
+  } else if (mainWindow) {
+    mainWindow.show()
   }
+})
+
+app.on('will-quit', () => {
+  trayManager?.destroy()
 })
