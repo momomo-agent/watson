@@ -272,7 +272,7 @@ const toolsSummary = computed(() => {
 .agent-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -301,7 +301,7 @@ const toolsSummary = computed(() => {
   word-break: break-word;
   line-height: 1.6;
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: var(--text-md);
   flex: 1;
   min-width: 0;
 }
@@ -420,7 +420,7 @@ const toolsSummary = computed(() => {
 .content :deep(.markdown-image) {
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   margin: 0.75rem 0;
   cursor: pointer;
   transition: all 0.2s;
@@ -441,7 +441,7 @@ const toolsSummary = computed(() => {
 .tool-loop-container {
   margin-top: 1rem;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--bg-tertiary);
 }
@@ -461,7 +461,7 @@ const toolsSummary = computed(() => {
 }
 
 .tool-loop-icon {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   color: var(--accent-color);
   transition: transform 0.3s ease;
   display: inline-block;
@@ -473,19 +473,19 @@ const toolsSummary = computed(() => {
 
 .tool-loop-summary {
   flex: 1;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
   font-weight: 500;
 }
 
 .tool-round-badge {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 0.2rem 0.5rem;
   background: var(--bg-secondary);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .tool-calls {
@@ -522,11 +522,11 @@ const toolsSummary = computed(() => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  background: rgba(74, 158, 255, 0.1);
-  border-radius: 6px;
-  font-size: 0.875rem;
+  background: var(--tool-accent-bg);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-base);
   color: var(--text-secondary);
-  border: 1px solid rgba(74, 158, 255, 0.2);
+  border: 1px solid var(--tool-accent-border);
   transition: all 0.2s;
   cursor: pointer;
 }
@@ -542,18 +542,18 @@ const toolsSummary = computed(() => {
 }
 
 .tool-call.complete {
-  border-color: rgba(74, 200, 120, 0.3);
-  background: rgba(74, 200, 120, 0.08);
+  border-color: var(--success);
+  background: var(--success-bg);
 }
 
 .tool-call.error {
-  border-color: rgba(255, 107, 107, 0.3);
-  background: rgba(255, 107, 107, 0.08);
+  border-color: var(--error);
+  background: var(--error-bg);
 }
 
 .tool-call.blocked {
-  border-color: rgba(255, 165, 0, 0.3);
-  background: rgba(255, 165, 0, 0.08);
+  border-color: var(--warning);
+  background: var(--warning-bg);
 }
 
 .tool-icon {
@@ -566,8 +566,8 @@ const toolsSummary = computed(() => {
 }
 
 .tool-error, .tool-blocked {
-  font-size: 0.75rem;
-  color: #ff6b6b;
+  font-size: var(--text-xs);
+  color: var(--error);
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -575,7 +575,7 @@ const toolsSummary = computed(() => {
 }
 
 .tool-blocked {
-  color: #ffa500;
+  color: var(--warning);
 }
 
 .status-bar {
@@ -585,7 +585,7 @@ const toolsSummary = computed(() => {
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 1px solid var(--border-color);
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 
@@ -596,11 +596,11 @@ const toolsSummary = computed(() => {
 }
 
 .status.error {
-  color: #ff6b6b;
+  color: var(--error);
 }
 
 .status.cancelled {
-  color: #ffa500;
+  color: var(--warning);
 }
 
 .status.complete {
@@ -615,7 +615,7 @@ const toolsSummary = computed(() => {
   display: inline-block;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--accent-color);
   animation: pulse 1.5s ease-in-out infinite;
 }
@@ -633,11 +633,11 @@ const toolsSummary = computed(() => {
 button {
   padding: 0.25rem 0.75rem;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   transition: all 0.2s;
 }
 
@@ -647,14 +647,14 @@ button:hover {
 }
 
 .btn-cancel:hover {
-  border-color: #ff6b6b;
-  color: #ff6b6b;
-  background: rgba(255, 107, 107, 0.1);
+  border-color: var(--error);
+  color: var(--error);
+  background: var(--error-bg);
 }
 
 .btn-retry:hover {
   border-color: var(--accent-color);
   color: var(--accent-color);
-  background: rgba(74, 158, 255, 0.1);
+  background: var(--tool-accent-bg);
 }
 </style>

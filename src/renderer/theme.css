@@ -21,6 +21,29 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.1);
+
+  /* Semantic status colors */
+  --error: #e03e3e;
+  --error-bg: rgba(227, 62, 62, 0.08);
+  --warning: #d9730d;
+  --warning-bg: rgba(217, 115, 13, 0.08);
+  --success: #0f7b6c;
+  --success-bg: rgba(15, 123, 108, 0.08);
+  --tool-accent: var(--accent-color);
+  --tool-accent-bg: rgba(35, 131, 226, 0.08);
+  --tool-accent-border: rgba(35, 131, 226, 0.2);
+
+  /* Typography scale (5 steps) */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+
+  /* Border radius tiers */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-full: 50%;
 }
 
 [data-theme="dark"] {
@@ -44,6 +67,17 @@
   --shadow-sm: 0 1px 2px 0 rgb(96 165 250 / 0.1);
   --shadow-md: 0 4px 6px -1px rgb(96 165 250 / 0.15);
   --shadow-lg: 0 10px 15px -3px rgb(96 165 250 / 0.2);
+
+  /* Semantic status colors (dark) */
+  --error: #ff6b6b;
+  --error-bg: rgba(255, 107, 107, 0.12);
+  --warning: #ffa344;
+  --warning-bg: rgba(255, 163, 68, 0.12);
+  --success: #4ac078;
+  --success-bg: rgba(74, 192, 120, 0.12);
+  --tool-accent: var(--accent-color);
+  --tool-accent-bg: rgba(96, 165, 250, 0.1);
+  --tool-accent-border: rgba(96, 165, 250, 0.25);
 }
 
 /* Spring physics transitions (not linear) */
