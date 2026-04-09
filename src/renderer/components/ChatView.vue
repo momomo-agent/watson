@@ -90,6 +90,7 @@ const handleRetry = (msgId: string) => {
   <div class="chat-view">
     <div class="messages" ref="messagesContainer">
       <div v-if="messages.length === 0" class="empty-state">
+        <div class="empty-logo">W</div>
         <p>Watson</p>
         <span>Send a message to start.</span>
       </div>
@@ -162,15 +163,30 @@ const handleRetry = (msgId: string) => {
   gap: 0.75rem;
 }
 
+.empty-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--accent-color);
+  color: #fff;
+  font-size: 1.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 4px 16px rgba(96, 165, 250, 0.25);
+}
+
 .empty-state p {
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 600;
-  color: var(--text-secondary);
-  font-style: italic;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
 }
 
 .empty-state span {
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   color: var(--text-secondary);
 }
 

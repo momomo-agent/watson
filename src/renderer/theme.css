@@ -55,13 +55,13 @@
 }
 
 [data-theme="dark"] {
-  /* Off-black, not pure #000 */
-  --bg-primary: #09090b;
-  --bg-secondary: #18181b;
-  --bg-tertiary: #27272a;
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --border-color: #27272a;
+  /* Layered dark: primary (deepest) → secondary (sidebar/input) → tertiary (hover) */
+  --bg-primary: #0a0a0c;
+  --bg-secondary: #141416;
+  --bg-tertiary: #1e1e22;
+  --text-primary: #f0f0f2;
+  --text-secondary: #8a8a96;
+  --border-color: #232328;
   
   /* Brighter accent in dark mode */
   --accent-color: #60a5fa;

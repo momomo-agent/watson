@@ -183,6 +183,13 @@ onUnmounted(() => {
   transition: transform 0.2s;
 }
 
+.agent-button .agent-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .agent-button.active .dropdown-icon {
   transform: rotate(180deg);
 }

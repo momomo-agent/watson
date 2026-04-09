@@ -321,24 +321,21 @@ Settings
 
 .settings-btn {
   width: 100%;
-  padding: 0.75rem;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
+  padding: 0.625rem 0.75rem;
+  background: transparent;
+  border: none;
   border-radius: 8px;
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 0.5rem;
-  box-shadow: var(--shadow-sm);
 }
 
 .settings-btn:hover {
-  background: var(--bg-secondary);
+  background: var(--bg-tertiary);
   color: var(--text-primary);
-  box-shadow: var(--shadow-md);
 }
 </style>
