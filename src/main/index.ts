@@ -1,4 +1,15 @@
 import { app, BrowserWindow } from 'electron'
+
+if (process.env.NODE_ENV === 'development') {
+  app.commandLine.appendSwitch('remote-debugging-port', '9229')
+}
+
+// 设置全局代理（走 ClashX）
+try {
+  const { setGlobalDispatcher, ProxyAgent } = require('undici')
+  const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || 'http://127.0.0.1:7890'
+  setGlobalDispatcher(new ProxyAgent(proxy))
+} catch {}
 import { join } from 'path'
 import { registerChatHandlers } from './application/chat-handlers'
 import { registerWorkspaceHandlers } from './application/workspace-handlers'
@@ -31,9 +42,10 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: false
     }
   })
 

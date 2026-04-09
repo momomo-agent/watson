@@ -1,0 +1,49 @@
+{
+  "name": "watson",
+  "description": "UI/UX 设计迭代流程：设计 → 开发 → 审核 → 循环",
+  "version": "1.0.0",
+  "workflow": {
+    "entry": "startup",
+    "context": {
+      "maxIterations": 20,
+      "gapThreshold": 20
+    }
+  },
+  "agents": {
+    "designer": {
+      "role": "UI/UX Designer",
+      "model": "claude-sonnet-4-20250514",
+      "prompt": "configs/design-iteration/prompts/designer.md",
+      "capabilities": [
+        "read",
+        "write_design"
+      ]
+    },
+    "developer": {
+      "role": "Frontend Developer",
+      "model": "claude-sonnet-4-20250514",
+      "prompt": "configs/design-iteration/prompts/developer.md",
+      "capabilities": [
+        "read",
+        "write_code",
+        "git"
+      ]
+    },
+    "reviewer": {
+      "role": "Design Reviewer",
+      "model": "claude-opus-4-20250514",
+      "prompt": "configs/design-iteration/prompts/reviewer.md",
+      "capabilities": [
+        "read",
+        "screenshot",
+        "evaluate"
+      ]
+    }
+  },
+  "_workflow": "design-iteration",
+  "created": "2026-04-09T04:52:48.319Z",
+  "teamVersion": "2.0",
+  "goal": {
+    "description": "Watson UI 达到 Notion 级别的设计质量"
+  }
+}

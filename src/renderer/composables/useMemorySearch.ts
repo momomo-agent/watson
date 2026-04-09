@@ -20,7 +20,7 @@ export function useMemorySearch() {
     isIndexing.value = true
     error.value = null
     try {
-      const result = await window.electron.invoke('memory:buildIndex', workspaceDir)
+      const result = await window.api.invoke('memory:buildIndex', workspaceDir)
       if (!result.success) throw new Error(result.error)
       return result.count
     } catch (e) {
@@ -40,7 +40,7 @@ export function useMemorySearch() {
     isSearching.value = true
     error.value = null
     try {
-      const result = await window.electron.invoke('memory:search', workspaceDir, query, maxResults)
+      const result = await window.api.invoke('memory:search', workspaceDir, query, maxResults)
       if (!result.success) throw new Error(result.error)
       results.value = result.results
       return result.results

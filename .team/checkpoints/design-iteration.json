@@ -1,0 +1,17 @@
+{
+  "workflowId": "design-iteration",
+  "nodeId": "design-loop",
+  "stepIndex": 1,
+  "visitedNodes": [
+    "startup",
+    "design-loop"
+  ],
+  "loopIterations": {},
+  "transitionDepth": 2,
+  "nodeVisitCounts": {
+    "startup": 1,
+    "design-loop": 1
+  },
+  "contextOverrides": {},
+  "timestamp": "2026-04-09T04:54:15.091Z"
+}

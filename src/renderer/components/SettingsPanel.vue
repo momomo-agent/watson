@@ -9,11 +9,38 @@ interface McpServer {
   disabled?: boolean
 }
 
-interface Config {
-  provider: 'anthropic' | 'openai'
+interface ProviderConfig {
+  name: string
+  type: 'anthropic' | 'openai'
   apiKey: string
   baseUrl?: string
+  models: string[]
+}
+
+interface VoiceConfig {
+  tts?: {
+    provider: 'elevenlabs' | 'openai'
+    apiKey?: string
+    voice?: string
+  }
+  stt?: {
+    mode: 'browser' | 'whisper'
+  }
+}
+
+interface Config {
+  // New format
+  providers?: ProviderConfig[]
+  selectedProvider?: string
+  selectedModel?: string
+  voice?: VoiceConfig
+  
+  // Legacy format (for backward compatibility)
+  provider?: 'anthropic' | 'openai'
+  apiKey?: string
+  baseUrl?: string
   model?: string
+  
   mcpServers?: Record<string, McpServer>
 }
 
@@ -24,10 +51,13 @@ const emit = defineEmits<{
 const { theme } = useTheme()
 
 const config = ref<Config>({
-  provider: 'anthropic',
-  apiKey: '',
-  model: 'claude-sonnet-4-20250514'
+  providers: [],
+  selectedProvider: '',
+  selectedModel: ''
 })
+
+const editingProvider = ref<ProviderConfig | null>(null)
+const showProviderForm = ref(false)
 
 const newServerName = ref('')
 const newServerCommand = ref('')
@@ -42,6 +72,10 @@ onMounted(async () => {
   const loaded = await window.api.loadConfig()
   if (loaded) {
     config.value = loaded
+    // Ensure providers array exists
+    if (!config.value.providers) {
+      config.value.providers = []
+    }
   }
   
   const status = await window.api.heartbeatStatus()
@@ -53,6 +87,48 @@ onMounted(async () => {
 const saveConfig = async () => {
   await window.api.saveConfig(config.value)
   emit('close')
+}
+
+const addProvider = () => {
+  showProviderForm.value = true
+  editingProvider.value = {
+    name: '',
+    type: 'anthropic',
+    apiKey: '',
+    models: ['claude-sonnet-4-20250514']
+  }
+}
+
+const editProvider = (provider: ProviderConfig) => {
+  showProviderForm.value = true
+  editingProvider.value = { ...provider }
+}
+
+const saveProvider = () => {
+  if (!editingProvider.value || !config.value.providers) return
+  
+  const index = config.value.providers.findIndex(p => p.name === editingProvider.value!.name)
+  if (index >= 0) {
+    config.value.providers[index] = editingProvider.value
+  } else {
+    config.value.providers.push(editingProvider.value)
+  }
+  
+  showProviderForm.value = false
+  editingProvider.value = null
+}
+
+const deleteProvider = (name: string) => {
+  if (!config.value.providers) return
+  config.value.providers = config.value.providers.filter(p => p.name !== name)
+  if (config.value.selectedProvider === name) {
+    config.value.selectedProvider = config.value.providers[0]?.name || ''
+  }
+}
+
+const cancelProviderEdit = () => {
+  showProviderForm.value = false
+  editingProvider.value = null
 }
 
 const addMcpServer = () => {
@@ -133,30 +209,61 @@ const removeCronJob = async (id: string) => {
 
         <!-- API Configuration -->
         <section>
-          <h3>API Configuration</h3>
+          <h3>API Providers</h3>
           
-          <label>
-            <span>Provider</span>
-            <select v-model="config.provider" class="input">
-              <option value="anthropic">Anthropic</option>
-              <option value="openai">OpenAI</option>
-            </select>
-          </label>
-
-          <label>
-            <span>API Key</span>
-            <input v-model="config.apiKey" type="password" class="input" placeholder="sk-..." />
-          </label>
-
-          <label>
-            <span>Model</span>
-            <input v-model="config.model" class="input" placeholder="claude-sonnet-4-20250514" />
-          </label>
-
-          <label>
-            <span>Base URL (optional)</span>
-            <input v-model="config.baseUrl" class="input" placeholder="https://api.anthropic.com" />
-          </label>
+          <div v-if="config.providers && config.providers.length > 0" class="provider-list">
+            <div v-for="provider in config.providers" :key="provider.name" class="provider-item">
+              <div class="provider-info">
+                <strong>{{ provider.name }}</strong>
+                <span class="provider-type">{{ provider.type }}</span>
+                <code class="provider-models">{{ provider.models.join(', ') }}</code>
+              </div>
+              <div class="provider-actions">
+                <button @click="editProvider(provider)" class="edit-btn">Edit</button>
+                <button @click="deleteProvider(provider.name)" class="remove-btn">×</button>
+              </div>
+            </div>
+          </div>
+          
+          <button @click="addProvider" class="add-btn">+ Add Provider</button>
+          
+          <!-- Provider Form Modal -->
+          <div v-if="showProviderForm && editingProvider" class="provider-form">
+            <h4>{{ editingProvider.name ? 'Edit' : 'Add' }} Provider</h4>
+            
+            <label>
+              <span>Name</span>
+              <input v-model="editingProvider.name" class="input" placeholder="mimo-v2-pro" />
+            </label>
+            
+            <label>
+              <span>Type</span>
+              <select v-model="editingProvider.type" class="input">
+                <option value="anthropic">Anthropic</option>
+                <option value="openai">OpenAI</option>
+              </select>
+            </label>
+            
+            <label>
+              <span>API Key</span>
+              <input v-model="editingProvider.apiKey" type="password" class="input" placeholder="sk-..." />
+            </label>
+            
+            <label>
+              <span>Base URL (optional)</span>
+              <input v-model="editingProvider.baseUrl" class="input" placeholder="https://api.anthropic.com" />
+            </label>
+            
+            <label>
+              <span>Models (comma-separated)</span>
+              <input :value="editingProvider.models.join(', ')" @input="editingProvider.models = ($event.target as HTMLInputElement).value.split(',').map(s => s.trim())" class="input" placeholder="claude-sonnet-4-20250514" />
+            </label>
+            
+            <div class="form-actions">
+              <button @click="saveProvider" class="save-btn">Save</button>
+              <button @click="cancelProviderEdit" class="cancel-btn">Cancel</button>
+            </div>
+          </div>
         </section>
 
         <!-- MCP Servers -->
@@ -496,3 +603,106 @@ label span {
   opacity: 0.9;
 }
 </style>
+
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.provider-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.provider-item:hover {
+  border-color: var(--accent-color);
+  background: rgba(74, 158, 255, 0.05);
+}
+
+.provider-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.provider-info strong {
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.provider-type {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.provider-models {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-family: 'Monaco', monospace;
+}
+
+.provider-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.edit-btn {
+  padding: 0.25rem 0.75rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.edit-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.provider-form {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.provider-form h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.save-btn {
+  padding: 0.5rem 1rem;
+  background: var(--accent-color);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+}
+
+.cancel-btn {
+  padding: 0.5rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+}

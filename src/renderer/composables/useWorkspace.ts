@@ -1,4 +1,4 @@
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 
 export interface Workspace {
   id: string
@@ -11,30 +11,37 @@ export interface Workspace {
 const currentWorkspace = ref<Workspace | null>(null)
 const workspaces = ref<Workspace[]>([])
 
-export function useWorkspace() {
-  const loadWorkspaces = async () => {
-    workspaces.value = await window.electron.invoke('workspace:list')
-    currentWorkspace.value = await window.electron.invoke('workspace:current')
+const loadWorkspaces = async () => {
+  workspaces.value = await window.api.invoke('workspace:list')
+  currentWorkspace.value = await window.api.invoke('workspace:current')
+  
+  // Load config and expose to window for voice init
+  try {
+    const config = await window.api.loadConfig()
+    ;(window as any).__watsonConfig = config
+  } catch (e) {
+    console.error('[useWorkspace] config load failed:', e)
   }
+}
 
+// 立即初始化，不依赖 onMounted
+loadWorkspaces().catch(e => console.error('[useWorkspace] init failed:', e))
+
+export function useWorkspace() {
   const switchWorkspace = async (id: string) => {
-    currentWorkspace.value = await window.electron.invoke('workspace:switch', id)
+    currentWorkspace.value = await window.api.invoke('workspace:switch', id)
   }
 
   const createWorkspace = async (name: string, path: string) => {
-    const workspace = await window.electron.invoke('workspace:create', name, path)
+    const workspace = await window.api.invoke('workspace:create', name, path)
     await loadWorkspaces()
     return workspace
   }
 
   const deleteWorkspace = async (id: string) => {
-    await window.electron.invoke('workspace:delete', id)
+    await window.api.invoke('workspace:delete', id)
     await loadWorkspaces()
   }
-
-  onMounted(() => {
-    loadWorkspaces()
-  })
 
   return {
     currentWorkspace,

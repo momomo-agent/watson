@@ -6,6 +6,7 @@
  */
 
 import { contextBridge, ipcRenderer } from 'electron'
+console.log('[preload] loaded')
 
 // Track listeners so we can properly remove them
 const listenerMap = new Map<string, Map<Function, Function>>()

@@ -20,14 +20,14 @@ const agentInfo = ref<{ name: string; avatar: string; color: string } | null>(nu
 onMounted(async () => {
   if (props.message.agentId && props.message.role === 'assistant') {
     try {
-      const result = await window.electron.ipcRenderer.invoke('agent:get', {
+      const result = await window.api.ipcRenderer.invoke('agent:get', {
         workspacePath: process.cwd(),
         agentId: props.message.agentId
       })
       if (result.success && result.agent) {
         agentInfo.value = {
           name: result.agent.name,
-          avatar: result.agent.avatar || '🤖',
+          avatar: result.agent.avatar || 'A',
           color: result.agent.color || '#3b82f6'
         }
       }
@@ -47,7 +47,7 @@ const renderedContent = computed(() => {
 function toolStatusIcon(status: ToolCallInfo['status']): string {
   switch (status) {
     case 'pending': return '⏳'
-    case 'running': return '⚙️'
+    case 'running': return '●'
     case 'complete': return '✅'
     case 'error': return '❌'
     case 'blocked': return '🚫'
@@ -213,7 +213,7 @@ const toolsSummary = computed(() => {
 .message-card {
   padding: 1rem;
   margin-bottom: 1rem;
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   transition: border-color 0.2s;
@@ -255,11 +255,11 @@ const toolsSummary = computed(() => {
 }
 
 .role-label {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.05em;
 }
 
 .content {
@@ -281,7 +281,7 @@ const toolsSummary = computed(() => {
 /* 代码块容器 */
 .content :deep(.code-block-wrapper) {
   margin: 0.75rem 0;
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
   background: var(--code-bg, #0d1117);
   border: 1px solid rgba(255, 255, 255, 0.1);

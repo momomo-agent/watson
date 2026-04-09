@@ -16,7 +16,7 @@
           >
             <div class="agent-header">
               <span class="agent-avatar" :style="{ color: agent.color }">
-                {{ agent.avatar || '🤖' }}
+                {{ agent.avatar || 'A' }}
               </span>
               <div class="agent-title">
                 <h3>{{ agent.name }}</h3>
@@ -82,7 +82,7 @@
               </div>
               <div class="form-group">
                 <label>Avatar (emoji)</label>
-                <input v-model="editingAgent.avatar" placeholder="🤖" />
+                <input v-model="editingAgent.avatar" placeholder="A" />
               </div>
               <div class="form-group">
                 <label>Color</label>
@@ -149,7 +149,7 @@ const defaultAgentId = ref<string>('default')
 const editingAgent = ref<Agent | null>(null)
 
 async function loadAgents() {
-  const result = await window.electron.ipcRenderer.invoke('agent:list', {
+  const result = await window.api.ipcRenderer.invoke('agent:list', {
     workspacePath: props.workspacePath
   })
   if (result.success) {
@@ -163,7 +163,7 @@ function addNewAgent() {
   editingAgent.value = {
     id: '',
     name: '',
-    avatar: '🤖',
+    avatar: 'A',
     color: '#3b82f6',
   }
 }
@@ -182,7 +182,7 @@ async function saveAgent() {
   try {
     if (editingAgent.value.id) {
       // Update existing
-      await window.electron.ipcRenderer.invoke('agent:update', {
+      await window.api.ipcRenderer.invoke('agent:update', {
         workspacePath: props.workspacePath,
         agentId: editingAgent.value.id,
         updates: editingAgent.value
@@ -193,7 +193,7 @@ async function saveAgent() {
         ...editingAgent.value,
         id: editingAgent.value.name.toLowerCase().replace(/\s+/g, '-')
       }
-      await window.electron.ipcRenderer.invoke('agent:add', {
+      await window.api.ipcRenderer.invoke('agent:add', {
         workspacePath: props.workspacePath,
         agent: newAgent
       })
@@ -210,7 +210,7 @@ async function removeAgent(agentId: string) {
   if (!confirm('Are you sure you want to delete this agent?')) return
 
   try {
-    await window.electron.ipcRenderer.invoke('agent:remove', {
+    await window.api.ipcRenderer.invoke('agent:remove', {
       workspacePath: props.workspacePath,
       agentId
     })
@@ -223,7 +223,7 @@ async function removeAgent(agentId: string) {
 
 async function setDefault(agentId: string) {
   try {
-    await window.electron.ipcRenderer.invoke('agent:setDefault', {
+    await window.api.ipcRenderer.invoke('agent:setDefault', {
       workspacePath: props.workspacePath,
       agentId
     })

@@ -6,7 +6,9 @@
       @click="toggleDropdown"
       :title="`Current agent: ${currentAgent?.name || 'Default'}`"
     >
-      <span class="agent-avatar">{{ currentAgent?.avatar || '🤖' }}</span>
+      <span class="agent-avatar" :style="getAvatarStyle(currentAgent)">
+        {{ getAvatarText(currentAgent) }}
+      </span>
       <span class="agent-name">{{ currentAgent?.name || 'Watson' }}</span>
       <span class="dropdown-icon">▼</span>
     </button>
@@ -20,8 +22,8 @@
           :class="{ selected: agent.id === selectedAgentId }"
           @click="selectAgent(agent.id)"
         >
-          <span class="agent-avatar" :style="{ color: agent.color }">
-            {{ agent.avatar || '🤖' }}
+          <span class="agent-avatar" :style="getAvatarStyle(agent)">
+            {{ getAvatarText(agent) }}
           </span>
           <div class="agent-info">
             <div class="agent-name">{{ agent.name }}</div>
@@ -35,7 +37,7 @@
 
       <div class="agent-actions">
         <button class="action-button" @click="manageAgents">
-          ⚙️ Manage Agents
+          > Manage Agents
         </button>
       </div>
     </div>
@@ -71,7 +73,7 @@ const currentAgent = computed(() => {
 })
 
 async function loadAgents() {
-  const result = await window.electron.ipcRenderer.invoke('agent:list', {
+  const result = await window.api.ipcRenderer.invoke('agent:list', {
     workspacePath: props.workspacePath
   })
   if (result.success) {
@@ -97,6 +99,29 @@ function handleClickOutside(event: MouseEvent) {
   const target = event.target as HTMLElement
   if (!target.closest('.agent-selector')) {
     showDropdown.value = false
+  }
+}
+
+function getAvatarText(agent: Agent | undefined): string {
+  if (!agent) return 'W'
+  if (agent.avatar) return agent.avatar
+  return agent.name.charAt(0).toUpperCase()
+}
+
+function getAvatarStyle(agent: Agent | undefined) {
+  if (!agent) return { background: '#2383e2', color: '#fff' }
+  
+  // Generate color from name
+  const colors = [
+    '#2383e2', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5',
+    '#00bcd4', '#009688', '#4caf50', '#ff9800', '#ff5722'
+  ]
+  const hash = agent.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  const color = colors[hash % colors.length]
+  
+  return {
+    background: color,
+    color: '#fff'
   }
 }
 
@@ -134,8 +159,16 @@ onUnmounted(() => {
 }
 
 .agent-avatar {
-  font-size: 20px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .agent-name {

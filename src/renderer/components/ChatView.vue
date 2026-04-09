@@ -1,21 +1,30 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from 'vue'
+import { ref, watch, nextTick, computed, shallowRef, watchEffect } from 'vue'
 import { useChatSession } from '../composables/useChatSession'
 import { useSession } from '../composables/useSession'
 import { useUnread } from '../composables/useUnread'
+import { useWorkspace } from '../composables/useWorkspace'
+import { speak, isVoiceEnabled } from '../infrastructure/voice'
 import MessageCard from './MessageCard.vue'
 import ChatInput from './ChatInput.vue'
 import StatusIndicator from './StatusIndicator.vue'
 
 const { currentSessionId, updateSessionMessage } = useSession()
 const { clearUnread } = useUnread()
+const { currentWorkspace } = useWorkspace()
+const workspacePath = computed(() => currentWorkspace.value?.path ?? '/tmp')
 const sessionId = computed(() => currentSessionId.value || 'main')
 
-// Reactive chat session that updates when sessionId changes
-const chatSessionRef = ref(useChatSession(sessionId.value))
-const messages = computed(() => chatSessionRef.value.messages.value)
-const isLoading = computed(() => chatSessionRef.value.isLoading.value)
-const error = computed(() => chatSessionRef.value.error.value)
+// 响应式地创建 chatSession，sessionId 变化时重新创建
+const chatSession = shallowRef(useChatSession(sessionId.value))
+watchEffect(() => {
+  chatSession.value = useChatSession(sessionId.value)
+})
+
+// 暴露给模板用的计算属性
+const messages = computed(() => chatSession.value.messages.value)
+const isLoading = computed(() => chatSession.value.isLoading.value)
+const error = computed(() => chatSession.value.error.value)
 
 const messagesContainer = ref<HTMLElement | null>(null)
 
@@ -26,15 +35,9 @@ const appStatus = computed(() => {
   return 'idle'
 })
 
-// Recreate chat session when sessionId changes
-watch(sessionId, (newId, oldId) => {
-  // Don't recreate on initial mount (already created above)
-  if (oldId !== undefined) {
-    chatSessionRef.value = useChatSession(newId)
-  }
-  // MOMO-56: Clear unread and set active session when switching
+watch(sessionId, (newId) => {
   clearUnread(newId)
-}, { immediate: true })
+})
 
 // Auto-scroll to bottom when messages update
 watch(messages, async () => {
@@ -44,27 +47,37 @@ watch(messages, async () => {
   }
 }, { deep: true })
 
+// TTS: speak assistant messages when they complete
+watch(messages, (newMsgs, oldMsgs) => {
+  if (!isVoiceEnabled()) return
+  const lastNew = newMsgs[newMsgs.length - 1]
+  const lastOld = oldMsgs?.[oldMsgs.length - 1]
+  if (lastNew?.role === 'assistant' && lastNew.status === 'complete' && lastNew !== lastOld) {
+    const text = typeof lastNew.content === 'string' ? lastNew.content : ''
+    if (text) speak(text).catch(e => console.error('TTS failed:', e))
+  }
+}, { deep: true })
+
 // Update session's last message
 watch(messages, (msgs) => {
   if (msgs.length > 0 && sessionId.value) {
     const lastMsg = msgs[msgs.length - 1]
     if (lastMsg.role === 'assistant' && lastMsg.content) {
-      const preview = lastMsg.content.slice(0, 100)
-      updateSessionMessage(sessionId.value, preview)
+      updateSessionMessage(sessionId.value, lastMsg.content.slice(0, 100))
     }
   }
 }, { deep: true })
 
 const handleSend = async (text: string, agentId?: string) => {
-  await chatSessionRef.value.sendMessage(text, agentId)
+  await chatSession.value.sendMessage(text, agentId)
 }
 
 const handleCancel = (msgId: string) => {
-  chatSessionRef.value.cancel(msgId)
+  chatSession.value.cancel(msgId)
 }
 
 const handleRetry = (msgId: string) => {
-  chatSessionRef.value.retry(msgId)
+  chatSession.value.retry(msgId)
 }
 </script>
 
@@ -91,7 +104,7 @@ const handleRetry = (msgId: string) => {
 
     <ChatInput
       :disabled="isLoading"
-      :workspace-path="process.cwd()"
+      :workspace-path="workspacePath"
       @send="handleSend"
     />
 

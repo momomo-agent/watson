@@ -7,7 +7,7 @@
  * MOMO-34: Supports tool_calling status and toolCalls array.
  */
 
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onUnmounted } from 'vue'
 
 export interface ToolCallInfo {
   id: string
@@ -60,12 +60,9 @@ export function useChatSession(sessionId: string) {
     }
   }
 
-  onMounted(() => {
-    // Load messages first
-    loadMessages()
-    // Use the cleanup function returned by on()
-    cleanup = window.api.on('chat:update', handleUpdate)
-  })
+  // Load messages and register listener immediately (not in onMounted)
+  loadMessages()
+  cleanup = window.api.on('chat:update', handleUpdate)
 
   onUnmounted(() => {
     if (cleanup) {

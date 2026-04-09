@@ -2,15 +2,25 @@ import { defineConfig } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   main: {
+    define: mode === 'development' ? {
+      'process.env.VITE_DEV_SERVER_URL': '"http://localhost:5173"'
+    } : {},
     build: {
       outDir: 'dist-electron/main'
     }
   },
   preload: {
     build: {
-      outDir: 'dist-electron/preload'
+      outDir: 'dist-electron/preload',
+      rollupOptions: {
+        external: ['electron'],
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].cjs'
+        }
+      }
     }
   },
   renderer: {
@@ -24,4 +34,4 @@ export default defineConfig({
       outDir: 'dist-electron/renderer'
     }
   }
-})
+}))

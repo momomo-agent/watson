@@ -11,6 +11,32 @@
  *   - Loop detection + error recovery at the session level
  */
 
+// Proxy-aware fetch wrapper
+async function proxyFetch(url: string, options: any): Promise<Response> {
+  const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY
+  if (!proxy) return fetch(url, options)
+  
+  try {
+    const nodeFetch = require('node-fetch')
+    const fetchFn = typeof nodeFetch === 'function' ? nodeFetch : nodeFetch.default
+    const { HttpsProxyAgent } = require('https-proxy-agent')
+    const { Readable } = require('stream')
+    const res = await fetchFn(url, { ...options, agent: new HttpsProxyAgent(proxy) }) as any
+    return {
+      ok: res.ok,
+      status: res.status,
+      statusText: res.statusText,
+      headers: res.headers,
+      text: () => res.text(),
+      json: () => res.json(),
+      body: Readable.toWeb(res.body),
+    } as any
+  } catch (e: any) {
+    console.error('[proxyFetch] error, fallback to native fetch:', e.message)
+    return fetch(url, options)
+  }
+}
+
 export interface StreamChunk {
   type: 'text' | 'tool_use' | 'done' | 'error'
   text?: string
@@ -78,7 +104,7 @@ export class LLMClient {
       'anthropic-version': '2023-06-01',
     }
 
-    const res = await fetch(url, {
+    const res = await proxyFetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),
@@ -190,7 +216,7 @@ export class LLMClient {
       authorization: `Bearer ${apiKey}`,
     }
 
-    const res = await fetch(url, {
+    const res = await proxyFetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),

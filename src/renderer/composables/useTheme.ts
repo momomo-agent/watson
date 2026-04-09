@@ -2,10 +2,10 @@ import { ref, watch } from 'vue'
 
 type Theme = 'light' | 'dark'
 
-// Restore saved theme or default to dark
+// Restore saved theme or default to light
 const savedTheme = (typeof localStorage !== 'undefined'
   ? localStorage.getItem('watson-theme') as Theme | null
-  : null) || 'dark'
+  : null) || 'light'
 
 const theme = ref<Theme>(savedTheme)
 

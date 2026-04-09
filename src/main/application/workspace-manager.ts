@@ -180,6 +180,7 @@ export class Workspace {
       const apiKey = agentConfig?.apiKey || config.apiKey
       const baseUrl = agentConfig?.baseUrl || config.baseUrl
       const model = agentConfig?.model || config.model
+      console.log('[watson] using model:', model, 'baseUrl:', baseUrl, 'provider:', provider, 'workspacePath:', workspacePath)
 
       // Merge built-in tools and MCP tools
       let tools = [...BUILTIN_TOOLS]

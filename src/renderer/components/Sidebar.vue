@@ -17,9 +17,7 @@ onMounted(() => {
 })
 
 const handleNew = () => {
-  if (currentWorkspace.value) {
-    createSession(currentWorkspace.value.path)
-  }
+  createSession(currentWorkspace.value?.path || '')
 }
 
 const handleSwitch = (id: string) => {
@@ -114,7 +112,10 @@ const formatTime = (ts: number) => {
     </div>
 
     <div class="sidebar-footer">
-      <button @click="showSettings = true" class="settings-btn">⚙ Settings</button>
+      <button @click="showSettings = true" class="settings-btn">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+Settings
+</button>
     </div>
 
     <SettingsPanel v-if="showSettings" @close="showSettings = false" />
@@ -135,23 +136,23 @@ const formatTime = (ts: number) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem;
+  padding: 1rem 1rem;
   border-bottom: 1px solid var(--border-color);
 }
 
 .sidebar-header h2 {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   margin: 0;
 }
 
 .add-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
@@ -160,29 +161,32 @@ const formatTime = (ts: number) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
 }
 
 .add-btn:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.08);
 }
 
 .session-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0.5rem;
+  padding: 1rem;
   padding-bottom: 2rem;
 }
 
 .session-item {
   display: flex;
   align-items: center;
-  padding: 0.75rem 0.75rem 0.75rem 0.75rem;
-  border-radius: 6px;
+  padding: 0.75rem;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
-  margin-bottom: 0.375rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 0.5rem;
   gap: 0.5rem;
   border: 1px solid transparent;
   position: relative;
@@ -191,6 +195,7 @@ const formatTime = (ts: number) => {
 .session-item:hover {
   background: var(--bg-primary);
   border-color: var(--border-color);
+  box-shadow: var(--shadow-sm);
 }
 
 .session-item:hover .session-chevron {
@@ -198,8 +203,9 @@ const formatTime = (ts: number) => {
 }
 
 .session-item.active {
-  background: rgba(74, 158, 255, 0.15);
-  border: 1px solid rgba(74, 158, 255, 0.3);
+  background: var(--bg-primary);
+  border: 1px solid var(--accent-color);
+  box-shadow: var(--shadow-md);
 }
 
 .session-body {
@@ -211,13 +217,14 @@ const formatTime = (ts: number) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .session-title {
   font-weight: 500;
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
+  line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -240,7 +247,7 @@ const formatTime = (ts: number) => {
 }
 
 .session-time {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
   margin-left: 0.5rem;
 }
@@ -263,13 +270,13 @@ const formatTime = (ts: number) => {
 }
 
 .session-subtitle {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: var(--text-secondary);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  line-height: 1.4;
+  line-height: 1.5;
   margin-top: 0.125rem;
 }
 
@@ -308,7 +315,7 @@ const formatTime = (ts: number) => {
 }
 
 .sidebar-footer {
-  padding: 1rem;
+  padding: 0.75rem;
   border-top: 1px solid var(--border-color);
 }
 
@@ -317,19 +324,21 @@ const formatTime = (ts: number) => {
   padding: 0.75rem;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-secondary);
   font-size: 0.875rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .settings-btn:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
+  box-shadow: var(--shadow-md);
 }
 </style>

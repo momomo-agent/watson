@@ -92,7 +92,11 @@ const handleCloseManager = () => {
       :disabled="disabled || capturing"
       title="Capture screen context"
     >
-      {{ capturing ? '📸...' : '📸' }}
+      <svg v-if="!capturing" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+      <span v-else>●</span>
     </button>
     <textarea
       ref="textarea"
@@ -120,7 +124,7 @@ const handleCloseManager = () => {
 .chat-input {
   display: flex;
   gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  padding: 1rem;
   border-top: 1px solid var(--border-color);
   background: var(--bg-secondary);
   align-items: flex-end;
@@ -128,17 +132,17 @@ const handleCloseManager = () => {
 
 textarea {
   flex: 1;
-  padding: 0.6rem 0.75rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--bg-primary);
   color: var(--text-primary);
   font-family: inherit;
   font-size: 0.9rem;
   resize: none;
-  min-height: 38px;
+  min-height: 42px;
   max-height: 200px;
-  line-height: 1.4;
+  line-height: 1.5;
   overflow-y: auto;
 }
 
@@ -152,36 +156,43 @@ textarea:disabled {
 }
 
 button {
-  padding: 0.6rem 1.25rem;
+  padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--accent-color);
   color: white;
   cursor: pointer;
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: 0.9375rem;
   white-space: nowrap;
-  min-height: 38px;
+  min-height: 44px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
 }
 
 button:hover:not(:disabled) {
-  opacity: 0.9;
+  background: var(--accent-hover);
+  box-shadow: var(--shadow-md);
 }
 
 button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .capture-btn {
-  padding: 0.6rem;
-  min-width: 38px;
+  padding: 0.75rem;
+  min-width: 44px;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   font-size: 1.1rem;
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
 }
 
 .capture-btn:hover:not(:disabled) {
   background: var(--bg-secondary);
+  box-shadow: var(--shadow-md);
 }
 </style>

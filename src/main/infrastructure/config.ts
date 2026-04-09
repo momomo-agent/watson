@@ -16,12 +16,39 @@ export interface McpServerConfig {
   disabled?: boolean
 }
 
+export interface ProviderConfig {
+  name: string
+  type: 'anthropic' | 'openai'
+  apiKey: string
+  baseUrl?: string
+  models: string[]
+}
+
+export interface VoiceConfig {
+  tts?: {
+    provider: 'elevenlabs' | 'openai'
+    apiKey?: string
+    voice?: string
+  }
+  stt?: {
+    mode: 'browser' | 'whisper'
+  }
+}
+
 export interface Config {
-  provider: 'anthropic' | 'openai'
-  apiKey?: string // Single key (legacy)
-  apiKeys?: string[] // Multiple keys for rotation
+  // New multi-provider format
+  providers?: ProviderConfig[]
+  selectedProvider?: string
+  selectedModel?: string
+  voice?: VoiceConfig
+  
+  // Legacy single-provider format (for backward compatibility)
+  provider?: 'anthropic' | 'openai'
+  apiKey?: string
+  apiKeys?: string[]
   baseUrl?: string
   model?: string
+  
   mcpServers?: Record<string, McpServerConfig>
 }
 
@@ -32,17 +59,17 @@ export function loadConfig(workspacePath: string): Config {
     try {
       const content = readFileSync(workspaceConfigPath, 'utf8')
       const config = JSON.parse(content) as Config
-      if (config.apiKey || config.apiKeys) return normalizeConfig(config)
+      if (config.providers || config.apiKey || config.apiKeys) return normalizeConfig(config)
     } catch {}
   }
 
-  // 2. Try app-level config (~/Library/Application Support/watson/)
+  // 2. Try app-level config
   try {
     const appConfigPath = join(app.getPath('userData'), 'config.json')
     if (existsSync(appConfigPath)) {
       const content = readFileSync(appConfigPath, 'utf8')
       const config = JSON.parse(content) as Config
-      if (config.apiKey || config.apiKeys) return normalizeConfig(config)
+      if (config.providers || config.apiKey || config.apiKeys) return normalizeConfig(config)
     }
   } catch {}
 
@@ -94,26 +121,47 @@ export function loadConfig(workspacePath: string): Config {
 }
 
 /**
- * Normalize config to ensure both apiKey and apiKeys are set.
- * - If only apiKey exists, create apiKeys array with single key
- * - If only apiKeys exists, set apiKey to first key
- * - If both exist, keep both
+ * Normalize config to ensure backward compatibility.
+ * - New format: providers array + selectedProvider/selectedModel
+ * - Legacy format: single provider/apiKey/model
+ * - Convert legacy to new format if needed
  */
 function normalizeConfig(config: Config): Config {
-  if (config.apiKeys && config.apiKeys.length > 0) {
-    // Has apiKeys array — ensure apiKey is set to first key
+  // If new format (providers array), ensure selected provider exists
+  if (config.providers && config.providers.length > 0) {
+    const selected = config.selectedProvider || config.providers[0].name
+    const provider = config.providers.find(p => p.name === selected) || config.providers[0]
     return {
       ...config,
-      apiKey: config.apiKey || config.apiKeys[0],
-      apiKeys: config.apiKeys
-    }
-  } else if (config.apiKey) {
-    // Has single apiKey — create apiKeys array
-    return {
-      ...config,
-      apiKey: config.apiKey,
-      apiKeys: [config.apiKey]
+      selectedProvider: provider.name,
+      selectedModel: config.selectedModel || provider.models[0],
+      // Also set legacy fields for backward compatibility
+      provider: provider.type,
+      apiKey: provider.apiKey,
+      baseUrl: provider.baseUrl,
+      model: config.selectedModel || provider.models[0]
     }
   }
+  
+  // Legacy format: convert to new format
+  if (config.apiKey || config.apiKeys) {
+    const apiKey = config.apiKey || config.apiKeys?.[0] || ''
+    const provider: ProviderConfig = {
+      name: config.provider || 'default',
+      type: config.provider || 'anthropic',
+      apiKey,
+      baseUrl: config.baseUrl,
+      models: config.model ? [config.model] : ['claude-sonnet-4-20250514']
+    }
+    return {
+      ...config,
+      providers: [provider],
+      selectedProvider: provider.name,
+      selectedModel: provider.models[0],
+      apiKey,
+      apiKeys: config.apiKeys || [apiKey]
+    }
+  }
+  
   return config
 }

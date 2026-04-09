@@ -1,0 +1,14 @@
+{
+  "designer": {
+    "status": "idle",
+    "lastRun": "2026-04-09T04:54:15.089Z",
+    "currentTask": null,
+    "retryCount": 0
+  },
+  "developer": {
+    "status": "running",
+    "lastRun": "2026-04-09T04:54:15.091Z",
+    "currentTask": "developer",
+    "retryCount": 0
+  }
+}

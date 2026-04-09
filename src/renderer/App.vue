@@ -2,8 +2,13 @@
 import Sidebar from './components/Sidebar.vue'
 import ChatView from './components/ChatView.vue'
 import { useTheme } from './composables/useTheme'
+import { initVoice } from './infrastructure/voice'
 
 useTheme()
+
+// Init voice from config (config is passed via IPC or window.__watsonConfig)
+const config = (window as any).__watsonConfig
+if (config) initVoice(config)
 </script>
 
 <template>

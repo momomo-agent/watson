@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "preview": "electron-vite preview"
+    "preview": "electron-vite preview",
+    "package": "electron-builder --mac --arm64"
   },
   "keywords": [
     "electron",
@@ -22,7 +23,9 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node-cron": "^3.0.11",
     "@vitejs/plugin-vue": "^6.0.5",
-    "electron": "^41.1.1",
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1",
+    "electron-rebuild": "^3.2.9",
     "electron-vite": "^5.0.0",
     "typescript": "^6.0.2",
     "vite": "^8.0.3",
@@ -30,12 +33,29 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "agentic-voice": "file:../agentic/packages/voice",
     "better-sqlite3": "^12.8.0",
     "chokidar": "^5.0.0",
     "highlight.js": "^11.11.1",
+    "https-proxy-agent": "^9.0.0",
     "js-yaml": "^4.1.1",
     "marked": "^17.0.5",
     "node-cron": "^4.2.1",
+    "node-fetch": "^2.7.0",
     "sqlite-vec": "^0.1.6"
+  },
+  "build": {
+    "appId": "ai.momomo.watson",
+    "productName": "Watson",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist-electron/**/*"
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity"
+    }
   }
 }
