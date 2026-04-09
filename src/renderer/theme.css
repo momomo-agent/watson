@@ -33,6 +33,14 @@
   --tool-accent-bg: rgba(35, 131, 226, 0.08);
   --tool-accent-border: rgba(35, 131, 226, 0.2);
 
+  /* Interactive state variants (higher opacity for hover/active) */
+  --tool-accent-bg-hover: rgba(35, 131, 226, 0.16);
+  --tool-accent-border-hover: rgba(35, 131, 226, 0.35);
+
+  /* Transition timing */
+  --duration-fast: 0.15s;   /* hover, focus, color changes */
+  --duration-normal: 0.3s;  /* expand/collapse, theme transitions */
+
   /* Typography scale (5 steps) */
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
@@ -78,6 +86,10 @@
   --tool-accent: var(--accent-color);
   --tool-accent-bg: rgba(96, 165, 250, 0.1);
   --tool-accent-border: rgba(96, 165, 250, 0.25);
+
+  /* Interactive state variants (dark) */
+  --tool-accent-bg-hover: rgba(96, 165, 250, 0.18);
+  --tool-accent-border-hover: rgba(96, 165, 250, 0.4);
 }
 
 /* Spring physics transitions (not linear) */

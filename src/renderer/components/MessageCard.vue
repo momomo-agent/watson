@@ -217,7 +217,7 @@ const toolsSummary = computed(() => {
   background: transparent;
   border: none;
   border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-  transition: background 0.15s;
+  transition: background var(--duration-fast);
   display: flex;
   gap: 1rem;
   align-items: flex-start;
@@ -248,7 +248,7 @@ const toolsSummary = computed(() => {
 
 .message-card.error {
   border-left: none;
-  background: #fef2f2;
+  background: var(--error-bg);
 }
 
 .message-card.tool_calling {
@@ -353,7 +353,7 @@ const toolsSummary = computed(() => {
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.75rem;
-  transition: all 0.2s;
+  transition: all var(--duration-fast);
 }
 
 .content :deep(.code-copy-btn:hover) {
@@ -423,13 +423,13 @@ const toolsSummary = computed(() => {
   border-radius: var(--radius-md);
   margin: 0.75rem 0;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--duration-fast);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .content :deep(.markdown-image:hover) {
   border-color: var(--accent-color);
-  box-shadow: 0 4px 12px rgba(74, 158, 255, 0.2);
+  box-shadow: 0 4px 12px var(--tool-accent-border);
   transform: scale(1.02);
 }
 
@@ -453,7 +453,7 @@ const toolsSummary = computed(() => {
   padding: 0.5rem 0.75rem;
   cursor: pointer;
   user-select: none;
-  transition: background 0.2s;
+  transition: background var(--duration-fast);
 }
 
 .tool-loop-header:hover {
@@ -463,7 +463,7 @@ const toolsSummary = computed(() => {
 .tool-loop-icon {
   font-size: var(--text-xs);
   color: var(--accent-color);
-  transition: transform 0.3s ease;
+  transition: transform var(--duration-normal) ease;
   display: inline-block;
 }
 
@@ -499,7 +499,7 @@ const toolsSummary = computed(() => {
 /* 展开/折叠动画 */
 .tool-expand-enter-active,
 .tool-expand-leave-active {
-  transition: all 0.3s ease;
+  transition: all var(--duration-normal) ease;
   overflow: hidden;
 }
 
@@ -527,18 +527,18 @@ const toolsSummary = computed(() => {
   font-size: var(--text-base);
   color: var(--text-secondary);
   border: 1px solid var(--tool-accent-border);
-  transition: all 0.2s;
+  transition: all var(--duration-fast);
   cursor: pointer;
 }
 
 .tool-call:hover {
-  background: rgba(74, 158, 255, 0.18);
-  border-color: rgba(74, 158, 255, 0.4);
+  background: var(--tool-accent-bg-hover);
+  border-color: var(--tool-accent-border-hover);
 }
 
 .tool-call.running {
-  border-color: rgba(74, 158, 255, 0.5);
-  background: rgba(74, 158, 255, 0.15);
+  border-color: var(--tool-accent-border-hover);
+  background: var(--tool-accent-bg-hover);
 }
 
 .tool-call.complete {
@@ -638,7 +638,7 @@ button {
   color: var(--text-secondary);
   cursor: pointer;
   font-size: var(--text-sm);
-  transition: all 0.2s;
+  transition: all var(--duration-fast);
 }
 
 button:hover {
