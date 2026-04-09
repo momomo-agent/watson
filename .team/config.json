@@ -12,7 +12,6 @@
   "agents": {
     "designer": {
       "role": "UI/UX Designer",
-      "model": "claude-sonnet-4-20250514",
       "prompt": "configs/design-iteration/prompts/designer.md",
       "capabilities": [
         "read",
@@ -21,7 +20,6 @@
     },
     "developer": {
       "role": "Frontend Developer",
-      "model": "claude-sonnet-4-20250514",
       "prompt": "configs/design-iteration/prompts/developer.md",
       "capabilities": [
         "read",
@@ -31,7 +29,6 @@
     },
     "reviewer": {
       "role": "Design Reviewer",
-      "model": "claude-opus-4-20250514",
       "prompt": "configs/design-iteration/prompts/reviewer.md",
       "capabilities": [
         "read",
@@ -41,9 +38,9 @@
     }
   },
   "_workflow": "design-iteration",
-  "created": "2026-04-09T04:52:48.319Z",
+  "created": "2026-04-09T06:32:30.588Z",
   "teamVersion": "2.0",
   "goal": {
-    "description": "Watson UI 达到 Notion 级别的设计质量"
+    "description": "Watson UI 达到 Notion 风格：对话像真正的对话，设计质量超越 Paw"
   }
 }

@@ -46,12 +46,12 @@ const renderedContent = computed(() => {
 
 function toolStatusIcon(status: ToolCallInfo['status']): string {
   switch (status) {
-    case 'pending': return '⏳'
+    case 'pending': return '○'
     case 'running': return '●'
-    case 'complete': return '✅'
-    case 'error': return '❌'
-    case 'blocked': return '🚫'
-    default: return '🔧'
+    case 'complete': return '✓'
+    case 'error': return '✕'
+    case 'blocked': return '⊘'
+    default: return '·'
   }
 }
 
@@ -208,39 +208,59 @@ const toolsSummary = computed(() => {
 </template>
 
 <style scoped>
-@import 'highlight.js/styles/github-dark.css';
+@import 'highlight.js/styles/github.css';
 
 .message-card {
-  padding: 1rem;
-  margin-bottom: 1rem;
-  border-radius: 8px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  transition: border-color 0.2s;
-}
-
-.message-card:hover {
-  border-color: var(--text-secondary);
+  padding: 1rem 1.5rem;
+  margin-bottom: 0.5rem;
+  border-radius: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  transition: background 0.15s;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
 }
 
 .message-card.user {
-  background: var(--msg-user-bg, #1e1e2e);
-  border-color: var(--msg-user-border, #2e2e3e);
+  background: var(--msg-user-bg);
+  border: none;
+  border-bottom-color: var(--msg-user-border);
+  flex-direction: row-reverse;
+}
+
+.message-card.user .message-header {
+  flex-direction: row-reverse;
+}
+
+.message-card.user .content {
+  text-align: right;
+}
+
+.message-card.user .role-info {
+  flex-direction: row-reverse;
+}
+
+.message-card:hover {
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .message-card.error {
-  border-left: 3px solid #ff6b6b;
+  border-left: none;
+  background: #fef2f2;
 }
 
 .message-card.tool_calling {
-  border-left: 3px solid var(--accent-color);
+  border-left: none;
 }
 
 .message-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
+  flex-shrink: 0;
 }
 
 .role-info {
@@ -250,16 +270,30 @@ const toolsSummary = computed(() => {
 }
 
 .agent-avatar {
-  font-size: 1.2rem;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
   line-height: 1;
+  flex-shrink: 0;
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.message-card.user .agent-avatar {
+  background: var(--accent-color);
+  font-size: 13px;
 }
 
 .role-label {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
 }
 
 .content {
@@ -267,6 +301,9 @@ const toolsSummary = computed(() => {
   word-break: break-word;
   line-height: 1.6;
   color: var(--text-primary);
+  font-size: 1rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .content :deep(a) {
@@ -402,11 +439,11 @@ const toolsSummary = computed(() => {
 
 /* Tool Loop Container */
 .tool-loop-container {
-  margin-top: 0.75rem;
-  border: 1px solid rgba(74, 158, 255, 0.2);
+  margin-top: 1rem;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   overflow: hidden;
-  background: rgba(74, 158, 255, 0.05);
+  background: var(--bg-tertiary);
 }
 
 .tool-loop-header {
@@ -420,7 +457,7 @@ const toolsSummary = computed(() => {
 }
 
 .tool-loop-header:hover {
-  background: rgba(74, 158, 255, 0.1);
+  background: var(--bg-secondary);
 }
 
 .tool-loop-icon {
@@ -436,7 +473,7 @@ const toolsSummary = computed(() => {
 
 .tool-loop-summary {
   flex: 1;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
   font-weight: 500;
 }
@@ -447,7 +484,7 @@ const toolsSummary = computed(() => {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 0.2rem 0.5rem;
-  background: rgba(74, 158, 255, 0.1);
+  background: var(--bg-secondary);
   border-radius: 4px;
 }
 
@@ -487,7 +524,7 @@ const toolsSummary = computed(() => {
   padding: 0.5rem 0.75rem;
   background: rgba(74, 158, 255, 0.1);
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   color: var(--text-secondary);
   border: 1px solid rgba(74, 158, 255, 0.2);
   transition: all 0.2s;
@@ -545,8 +582,8 @@ const toolsSummary = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--border-color);
   font-size: 0.75rem;
   color: var(--text-secondary);

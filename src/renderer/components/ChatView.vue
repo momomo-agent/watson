@@ -125,30 +125,26 @@ const handleRetry = (msgId: string) => {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 1rem;
+  padding: 1.5rem 0;
   scroll-behavior: smooth;
 }
 
 /* Custom scrollbar */
 .messages::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .messages::-webkit-scrollbar-track {
   background: transparent;
-  margin: 4px 0;
 }
 
 .messages::-webkit-scrollbar-thumb {
   background: var(--border-color);
-  border-radius: 4px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
+  border-radius: 3px;
 }
 
 .messages::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
-  background-clip: padding-box;
 }
 
 .empty-state {
@@ -158,17 +154,19 @@ const handleRetry = (msgId: string) => {
   justify-content: center;
   height: 100%;
   color: var(--text-secondary);
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .empty-state p {
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--text-secondary);
+  font-style: italic;
 }
 
 .empty-state span {
   font-size: 0.875rem;
+  color: var(--text-secondary);
 }
 
 .global-error {

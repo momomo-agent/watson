@@ -1,14 +1,20 @@
 {
   "designer": {
-    "status": "idle",
-    "lastRun": "2026-04-09T04:54:15.089Z",
+    "status": "timeout",
+    "lastRun": "2026-04-09T09:42:40.617Z",
     "currentTask": null,
-    "retryCount": 0
+    "retryCount": 1
   },
   "developer": {
     "status": "running",
-    "lastRun": "2026-04-09T04:54:15.091Z",
+    "lastRun": "2026-04-09T09:42:40.618Z",
     "currentTask": "developer",
-    "retryCount": 0
+    "retryCount": 2
+  },
+  "reviewer": {
+    "status": "error",
+    "lastRun": "2026-04-09T09:24:41.498Z",
+    "currentTask": null,
+    "retryCount": 2
   }
 }

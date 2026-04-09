@@ -12,6 +12,10 @@
     "startup": 1,
     "design-loop": 1
   },
-  "contextOverrides": {},
-  "timestamp": "2026-04-09T04:54:15.091Z"
+  "contextOverrides": {
+    "lastAgentSignal": "blocked",
+    "agentEscalated": 0,
+    "agentBlocked": 1
+  },
+  "timestamp": "2026-04-09T09:42:40.618Z"
 }
