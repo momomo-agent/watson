@@ -92,7 +92,7 @@ const handleRetry = (msgId: string) => {
       <div v-if="messages.length === 0" class="empty-state">
         <div class="empty-logo">W</div>
         <p>Watson</p>
-        <span>Send a message to start.</span>
+        <span>How can I help you today?</span>
       </div>
 
       <MessageCard

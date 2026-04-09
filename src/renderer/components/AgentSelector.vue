@@ -146,7 +146,7 @@ onUnmounted(() => {
   gap: 8px;
   padding: 8px 12px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -155,7 +155,7 @@ onUnmounted(() => {
 .agent-button:hover,
 .agent-button.active {
   background: var(--bg-tertiary);
-  border-color: var(--primary);
+  border-color: var(--accent-color);
 }
 
 .agent-avatar {
@@ -200,7 +200,7 @@ onUnmounted(() => {
   left: 0;
   min-width: 280px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 1000;
@@ -230,7 +230,7 @@ onUnmounted(() => {
 }
 
 .agent-item.selected {
-  background: var(--primary-alpha);
+  background: var(--tool-accent-bg);
 }
 
 .agent-info {
@@ -254,13 +254,13 @@ onUnmounted(() => {
 }
 
 .check-icon {
-  color: var(--primary);
+  color: var(--accent-color);
   font-size: 16px;
   font-weight: bold;
 }
 
 .agent-actions {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-color);
   padding: 8px;
 }
 

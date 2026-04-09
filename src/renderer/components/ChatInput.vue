@@ -124,7 +124,7 @@ const handleCloseManager = () => {
 .chat-input {
   display: flex;
   gap: 0.5rem;
-  padding: 1rem;
+  padding: 0.75rem 1rem;
   border-top: 1px solid var(--border-color);
   background: var(--bg-secondary);
   align-items: flex-end;
@@ -156,18 +156,17 @@ textarea:disabled {
 }
 
 button {
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1.25rem;
   border: none;
   border-radius: 8px;
   background: var(--accent-color);
   color: white;
   cursor: pointer;
   font-weight: 500;
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   white-space: nowrap;
-  min-height: 44px;
+  min-height: 36px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: var(--shadow-sm);
 }
 
 button:hover:not(:disabled) {
@@ -182,17 +181,25 @@ button:disabled {
 }
 
 .capture-btn {
-  padding: 0.75rem;
-  min-width: 44px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  font-size: 1.1rem;
-  border-radius: 8px;
-  box-shadow: var(--shadow-sm);
+  padding: 0.5rem;
+  min-width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  border-radius: 6px;
+  box-shadow: none;
 }
 
 .capture-btn:hover:not(:disabled) {
-  background: var(--bg-secondary);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+.capture-btn svg {
+  width: 16px;
+  height: 16px;
 }
 </style>
