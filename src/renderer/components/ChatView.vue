@@ -9,7 +9,7 @@ import MessageCard from './MessageCard.vue'
 import ChatInput from './ChatInput.vue'
 import StatusIndicator from './StatusIndicator.vue'
 
-const { currentSessionId, updateSessionMessage } = useSession()
+const { currentSessionId, updateSessionMessage, renameSession } = useSession()
 const { clearUnread } = useUnread()
 const { currentWorkspace } = useWorkspace()
 const workspacePath = computed(() => currentWorkspace.value?.path ?? '/tmp')
@@ -69,6 +69,11 @@ watch(messages, (msgs) => {
 }, { deep: true })
 
 const handleSend = async (text: string, agentId?: string) => {
+  // Auto-title session with first message content
+  if (messages.value.length === 0 && sessionId.value) {
+    const title = text.slice(0, 30).trim()
+    if (title) renameSession(sessionId.value, title)
+  }
   await chatSession.value.sendMessage(text, agentId)
 }
 

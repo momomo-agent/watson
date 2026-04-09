@@ -189,7 +189,7 @@ onUnmounted(() => {
 
 .agent-dropdown {
   position: absolute;
-  top: calc(100% + 8px);
+  bottom: calc(100% + 8px);
   left: 0;
   min-width: 280px;
   background: var(--bg-secondary);
