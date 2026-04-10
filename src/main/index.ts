@@ -1,8 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 
-if (process.env.NODE_ENV === 'development') {
-  app.commandLine.appendSwitch('remote-debugging-port', '9229')
-}
+app.commandLine.appendSwitch('remote-debugging-port', '9229')
 
 // 设置全局代理（走 ClashX）
 try {
@@ -124,6 +122,14 @@ app.whenReady().then(createWindow)
 
 app.on('before-quit', () => {
   app.isQuitting = true
+})
+
+app.on('before-quit', async () => {
+  await agenticService.stop()
+})
+
+app.on('before-quit', async () => {
+  await agenticService.stop()
 })
 
 app.on('window-all-closed', () => {

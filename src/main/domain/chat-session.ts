@@ -176,23 +176,17 @@ export class ChatSession extends EventEmitter {
     const failedMsg = this.messages.find((m) => m.id === messageId)
     if (!failedMsg) throw new Error('Message not found')
 
-    // Mark old message as cancelled
-    failedMsg.status = 'cancelled'
+    // Reset the failed message in-place instead of creating a new one
+    failedMsg.content = ''
+    failedMsg.status = 'pending'
+    failedMsg.error = undefined
+    failedMsg.errorCategory = undefined
+    failedMsg.errorRetryable = undefined
+    failedMsg.timestamp = Date.now()
     this.emit('update')
 
-    // Create new assistant message
-    const newMsg: Message = {
-      id: this.generateId(),
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-      status: 'pending',
-    }
-    this.messages.push(newMsg)
-    this.emit('update')
-
-    await this.executeRequest(newMsg)
-    return newMsg.id
+    await this.executeRequest(failedMsg, 0, failedMsg.id)
+    return failedMsg.id
   }
 
   /**
@@ -205,7 +199,7 @@ export class ChatSession extends EventEmitter {
    * 4. If pure text → done
    * 5. On error → classify + auto-retry/compact/abort
    */
-  private async executeRequest(message: Message, retryCount: number = 0): Promise<void> {
+  private async executeRequest(message: Message, retryCount: number = 0, historyBeforeId?: string): Promise<void> {
     const controller = new AbortController()
     this.activeRequests.set(message.id, controller)
 
@@ -227,7 +221,7 @@ export class ChatSession extends EventEmitter {
 
         // Build full conversation history
         let history = [
-          ...this.getHistory(),  // completed messages from prior turns
+          ...this.getHistory(historyBeforeId),  // completed messages from prior turns
           ...turnHistory,        // tool interactions from this turn
         ]
 
@@ -438,7 +432,7 @@ export class ChatSession extends EventEmitter {
       this.emit('update')
 
       let finalHistory = [
-        ...this.getHistory(),
+        ...this.getHistory(historyBeforeId),
         ...turnHistory,
       ]
 
@@ -488,7 +482,7 @@ export class ChatSession extends EventEmitter {
             if (retryDelayMs > 0) {
               await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
             }
-            return this.executeRequest(message, retryCount + 1)
+            return this.executeRequest(message, retryCount + 1, historyBeforeId)
 
           case 'compact':
             message.status = 'pending'
@@ -497,7 +491,7 @@ export class ChatSession extends EventEmitter {
             this.persistMessage(message)
             this.emit('update')
             this.activeRequests.delete(message.id)
-            return this.executeRequest(message, retryCount + 1)
+            return this.executeRequest(message, retryCount + 1, historyBeforeId)
 
           case 'failover':
           case 'abort':
@@ -526,8 +520,13 @@ export class ChatSession extends EventEmitter {
    * Only includes complete messages (not pending/error/cancelled).
    * Returns messages with content in a format ready for the LLM.
    */
-  private getHistory(): Array<{ role: string; content: any }> {
-    return this.messages
+  private getHistory(beforeMessageId?: string): Array<{ role: string; content: any }> {
+    let msgs = this.messages
+    if (beforeMessageId) {
+      const idx = msgs.findIndex((m) => m.id === beforeMessageId)
+      if (idx >= 0) msgs = msgs.slice(0, idx)
+    }
+    return msgs
       .filter((m) => m.status === 'complete' && m.content)
       .map((m) => ({ role: m.role, content: m.content }))
   }

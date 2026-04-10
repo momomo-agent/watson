@@ -1,19 +1,19 @@
 {
   "designer": {
-    "status": "timeout",
-    "lastRun": "2026-04-09T09:42:40.617Z",
+    "status": "idle",
+    "lastRun": "2026-04-09T10:53:56.345Z",
     "currentTask": null,
     "retryCount": 1
   },
   "developer": {
-    "status": "running",
-    "lastRun": "2026-04-09T09:42:40.618Z",
-    "currentTask": "developer",
+    "status": "idle",
+    "lastRun": "2026-04-09T10:54:45.506Z",
+    "currentTask": null,
     "retryCount": 2
   },
   "reviewer": {
-    "status": "error",
-    "lastRun": "2026-04-09T09:24:41.498Z",
+    "status": "idle",
+    "lastRun": "2026-04-09T10:57:11.412Z",
     "currentTask": null,
     "retryCount": 2
   }
