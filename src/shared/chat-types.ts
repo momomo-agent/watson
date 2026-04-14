@@ -98,6 +98,19 @@ export interface ChatMessage {
   senderId?: string           // workspace id, 'user', or delegate workspace id
   senderName?: string         // cached display name (may be stale — prefer live lookup)
 
+  // Delegation chain
+  // In group mode, the owner agent may delegate to other agents.
+  // Each delegate response is a separate message with its own sender.
+  //
+  // Example flow:
+  //   msg1: { role: 'assistant', senderId: 'owner' }           ← owner starts
+  //   msg2: { role: 'assistant', senderId: 'A', delegatedBy: 'owner' }  ← A responds
+  //   msg3: { role: 'assistant', senderId: 'B', delegatedBy: 'owner' }  ← B responds
+  //   msg4: { role: 'assistant', senderId: 'owner' }           ← owner wraps up (optional)
+  //
+  delegatedBy?: string        // who initiated this delegation (owner's senderId)
+  delegateTask?: string       // what the delegate was asked to do
+
   // Assistant response structure
   flow?: FlowSegment[]        // ordered segments (thinking → tools → text → ...)
   toolCalls?: ToolCall[]       // flat list of all tool calls (for persistence compat)

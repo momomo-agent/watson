@@ -114,10 +114,13 @@ const hasFlow = computed(() => flowSegments.value.length > 0)
 
     <!-- Body -->
     <div class="msg-body">
-      <!-- Header: name + status + time -->
+      <!-- Header: name + delegate badge + status + time -->
       <div class="msg-header">
         <span class="msg-name" :class="{ 'name-user': isUser, 'name-delegate': isDelegate }">
           {{ displayName }}
+        </span>
+        <span v-if="message.delegatedBy" class="msg-delegate-badge">
+          委派{{ message.delegateTask ? `：${message.delegateTask}` : '' }}
         </span>
         <span v-if="isStreaming && statusText" class="msg-status">
           {{ statusText }}
@@ -257,6 +260,14 @@ const hasFlow = computed(() => flowSegments.value.length > 0)
 
 .name-delegate {
   color: var(--accent-color, #3b82f6);
+}
+
+.msg-delegate-badge {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary, #666);
+  background: var(--bg-tertiary, #1a1a2e);
+  padding: 1px 6px;
+  border-radius: 3px;
 }
 
 .msg-status {
