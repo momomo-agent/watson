@@ -20,6 +20,7 @@ import type {
   ToolCallStatus,
   ChatUpdateEvent,
 } from '../../shared/chat-types'
+import type { SenseContext } from './sense-loop'
 
 // ── Stream Protocol ──
 
@@ -55,6 +56,7 @@ export class ChatSession extends EventEmitter {
   private activeRequests = new Map<string, AbortController>()
   private llmStream: LLMStreamFn
   private statusText: string | null = null
+  private senseContext: SenseContext | null = null
 
   constructor(id: string, workspacePath: string, llmStream: LLMStreamFn) {
     super()
@@ -113,6 +115,11 @@ export class ChatSession extends EventEmitter {
 
     await this.executeStream(msg, msg.id)
     return msg.id
+  }
+
+  /** Inject ambient perception context (from SenseLoop) */
+  setSenseContext(ctx: SenseContext | null): void {
+    this.senseContext = ctx
   }
 
   getUpdateEvent(): ChatUpdateEvent {
@@ -361,9 +368,19 @@ export class ChatSession extends EventEmitter {
       const idx = msgs.findIndex(m => m.id === beforeMessageId)
       if (idx >= 0) msgs = msgs.slice(0, idx)
     }
-    return msgs
+    const history = msgs
       .filter(m => m.status === 'complete' && m.content)
       .map(m => ({ role: m.role, content: m.content }))
+
+    // Inject ambient context from SenseLoop (if available)
+    if (this.senseContext && this.senseContext.confidence > 0.3) {
+      const ctx = this.senseContext
+      const contextMsg = `[Ambient Context] User is ${ctx.activity}. Active app: ${ctx.activeApp}. Screen: ${ctx.screenSummary}`
+      // Prepend as system-like context (using user role for compatibility)
+      history.unshift({ role: 'user', content: `<context>${contextMsg}</context>` })
+    }
+
+    return history
   }
 
   private genId(): string {

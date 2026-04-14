@@ -1,0 +1,175 @@
+/**
+ * SenseLoop — Ambient perception engine
+ *
+ * Runs a continuous perception loop using local models (agentic-service).
+ * Captures screen/environment changes, runs local inference,
+ * and injects context into ChatSession.
+ *
+ * Architecture:
+ *   agentic-sense (capture) → agentic-service (local model) → context buffer
+ *   ChatSession reads context buffer before each cloud LLM call.
+ *
+ * This is the "eyes and ears" — always on, always local, zero cloud cost.
+ */
+
+import { EventEmitter } from 'events'
+
+// ── Types ──
+
+export interface SenseContext {
+  /** What the user is currently doing */
+  activity: string
+  /** Active app/window */
+  activeApp: string
+  /** Key content visible on screen */
+  screenSummary: string
+  /** Timestamp of last perception */
+  timestamp: number
+  /** Confidence score 0-1 */
+  confidence: number
+  /** Raw perception data (for debugging) */
+  raw?: any
+}
+
+export interface SenseConfig {
+  /** Perception interval in ms (default: 5000) */
+  intervalMs?: number
+  /** Whether to capture screen content */
+  screenCapture?: boolean
+  /** Local model endpoint (agentic-service) */
+  localModelUrl?: string
+  /** Minimum change threshold to emit update (0-1) */
+  changeThreshold?: number
+}
+
+// ── SenseLoop ──
+
+export class SenseLoop extends EventEmitter {
+  private config: Required<SenseConfig>
+  private timer: ReturnType<typeof setInterval> | null = null
+  private running = false
+  private lastContext: SenseContext | null = null
+
+  constructor(config: SenseConfig = {}) {
+    super()
+    this.config = {
+      intervalMs: config.intervalMs ?? 5000,
+      screenCapture: config.screenCapture ?? true,
+      localModelUrl: config.localModelUrl ?? 'http://127.0.0.1:18910',
+      changeThreshold: config.changeThreshold ?? 0.3,
+    }
+  }
+
+  /** Start the perception loop */
+  start(): void {
+    if (this.running) return
+    this.running = true
+    this.tick() // immediate first tick
+    this.timer = setInterval(() => this.tick(), this.config.intervalMs)
+    this.emit('started')
+  }
+
+  /** Stop the perception loop */
+  stop(): void {
+    if (!this.running) return
+    this.running = false
+    if (this.timer) {
+      clearInterval(this.timer)
+      this.timer = null
+    }
+    this.emit('stopped')
+  }
+
+  /** Get the latest context (for injection into LLM calls) */
+  getContext(): SenseContext | null {
+    return this.lastContext
+  }
+
+  /** Check if loop is running */
+  isRunning(): boolean {
+    return this.running
+  }
+
+  // ── Internal ──
+
+  private async tick(): Promise<void> {
+    if (!this.running) return
+
+    try {
+      // Phase 1: Capture (agentic-sense)
+      const rawCapture = await this.capture()
+
+      // Phase 2: Local inference (agentic-service)
+      const context = await this.infer(rawCapture)
+
+      // Phase 3: Change detection
+      if (this.hasSignificantChange(context)) {
+        this.lastContext = context
+        this.emit('context', context)
+      }
+    } catch (err) {
+      // Perception failures are non-fatal — just skip this tick
+      this.emit('error', err)
+    }
+  }
+
+  private async capture(): Promise<any> {
+    // TODO: Use agentic-sense for screen capture
+    // For now, use agent-control snapshot as fallback
+    if (!this.config.screenCapture) return null
+
+    try {
+      const { exec } = await import('child_process')
+      const { promisify } = await import('util')
+      const execAsync = promisify(exec)
+      const { stdout } = await execAsync('agent-control -p macos snapshot --compact', {
+        maxBuffer: 10 * 1024 * 1024,
+        timeout: 3000,
+      })
+      return JSON.parse(stdout)
+    } catch {
+      return null
+    }
+  }
+
+  private async infer(rawCapture: any): Promise<SenseContext> {
+    // TODO: Send to agentic-service local model for inference
+    // For now, extract basic info from raw capture
+    if (!rawCapture || !Array.isArray(rawCapture)) {
+      return {
+        activity: 'unknown',
+        activeApp: '',
+        screenSummary: '',
+        timestamp: Date.now(),
+        confidence: 0,
+      }
+    }
+
+    // Basic extraction without LLM
+    let activeApp = ''
+    const labels: string[] = []
+
+    for (const el of rawCapture) {
+      if (el.role === 'MenuBarItem' && el.label && el.label !== 'Apple' && !activeApp) {
+        activeApp = el.label
+      }
+      if (el.label) labels.push(el.label)
+    }
+
+    return {
+      activity: `Using ${activeApp || 'unknown app'}`,
+      activeApp,
+      screenSummary: labels.slice(0, 20).join(' | '),
+      timestamp: Date.now(),
+      confidence: 0.5,
+      raw: rawCapture,
+    }
+  }
+
+  private hasSignificantChange(newContext: SenseContext): boolean {
+    if (!this.lastContext) return true
+    if (newContext.activeApp !== this.lastContext.activeApp) return true
+    // TODO: More sophisticated change detection using embeddings
+    return false
+  }
+}
