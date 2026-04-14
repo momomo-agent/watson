@@ -26,7 +26,7 @@ import { McpManager } from './infrastructure/mcp-manager'
 import { ToolRunner } from './infrastructure/tool-runner'
 import { loadConfig } from './infrastructure/config'
 import { SkillManager } from './domain/skill-manager'
-import { getAgentic, destroyAgentic } from './infrastructure/claw-bridge'
+import { configureAgentic } from './infrastructure/claw-bridge'
 
 let mainWindow: BrowserWindow | null = null
 let trayManager: TrayManager | null = null
@@ -91,16 +91,11 @@ function createWindow() {
   skillManager = new SkillManager(currentWorkspace)
   ToolRunner.setSkillManager(skillManager)
   if (currentWorkspace) {
-    // Initialize Agentic singleton from workspace config
+    // Configure Agentic from workspace config
     try {
-      const config = loadConfig(currentWorkspace)
-      const provider = config.provider || 'anthropic'
-      const apiKey = config.apiKey || ''
-      const baseUrl = config.baseUrl
-      const model = config.model
-      getAgentic({ provider, apiKey, baseUrl, model })
+      configureAgentic(currentWorkspace)
     } catch (err) {
-      console.warn('[Agentic] Init failed:', err)
+      console.warn('[Agentic] Config failed:', err)
     }
 
     // 加载配置并连接 MCP 服务器
@@ -149,7 +144,6 @@ app.on('window-all-closed', () => {
   heartbeat?.stop()
   cron?.stop()
   stopAllWatchers() // MOMO-55: Clean up file watchers
-  destroyAgentic()
   // macOS 上保持 app 运行（tray 模式）
   if (process.platform !== 'darwin') {
     app.quit()

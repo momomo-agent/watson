@@ -2,19 +2,17 @@
  * Claw Bridge — Infrastructure Layer
  *
  * Watson only imports `agentic` (the umbrella package).
+ * Uses the default `ai` instance with per-capability config.
  *
- * Agentic is a singleton — created once at app startup, shared across all workspaces.
- * Each workspace gets its own Claw instance (via ai.createClaw()) which handles:
- * - Session memory (conversation history)
- * - Context compaction
- * - Tool loop (multi-round, via agenticAsk)
- * - Token-level streaming
- * - Loop detection
- * - Provider failover
+ * Architecture:
+ * - `ai` from agentic = default instance, configured once at startup
+ * - `ai.createClaw({ tools })` = per-workspace Claw with tools + streaming
+ * - Claw manages: session memory, context compaction, tool loop, streaming
+ * - Watson's ChatSession manages: UI messages + SQLite persistence
  */
 
 // @ts-ignore — JS module without type declarations
-import { Agentic } from 'agentic'
+import { ai } from 'agentic'
 import type { StreamChunk, LLMStreamFn } from '../domain/chat-session'
 import { ToolRunner } from './tool-runner'
 import { BUILTIN_TOOLS } from './tools'
@@ -24,25 +22,26 @@ import { loadConfig } from './config'
 import type { AgentConfig } from './agent-manager'
 import type { AgentManager } from './agent-manager'
 
-// ── Agentic Singleton ──────────────────────────────────────────
+// ── Configure ──────────────────────────────────────────────────
 
-let _ai: any = null
+/** Configure the default Agentic instance from Watson's workspace config. */
+export function configureAgentic(workspacePath: string): void {
+  const config = loadConfig(workspacePath)
 
-/** Get or create the global Agentic instance. */
-export function getAgentic(opts?: { provider?: string; apiKey?: string; baseUrl?: string; model?: string }): any {
-  if (!_ai && opts) {
-    _ai = new Agentic(opts)
-    console.log('[claw-bridge] Agentic singleton created — provider:', opts.provider, 'model:', opts.model)
-  }
-  return _ai
-}
+  ai.configure({
+    llm: {
+      provider: config.provider || 'anthropic',
+      apiKey: config.apiKey || '',
+      baseUrl: config.baseUrl,
+      model: config.model,
+    },
+    tts: config.voice?.tts ? {
+      provider: config.voice.tts.provider,
+      apiKey: config.voice.tts.apiKey,
+    } : undefined,
+  })
 
-/** Destroy the singleton (for app shutdown). */
-export function destroyAgentic(): void {
-  if (_ai) {
-    _ai.destroy()
-    _ai = null
-  }
+  console.log('[claw-bridge] ai configured — provider:', config.provider, 'model:', config.model)
 }
 
 // ── Tool builders ──────────────────────────────────────────────
@@ -84,11 +83,6 @@ function buildMcpTools(mcpManager: McpManager | null, workspacePath: string) {
 
 // ── Claw LLM Stream ───────────────────────────────────────────
 
-/**
- * Create a LLMStreamFn powered by Claw.
- *
- * One Claw per workspace (lazy, reused). Agentic is the global singleton.
- */
 export function createClawLLMStream(
   workspacePath: string,
   mcpManager: McpManager | null,
@@ -97,7 +91,8 @@ export function createClawLLMStream(
   let claw: any = null
   let lastConfigHash = ''
 
-  function getOrCreateClaw(config: any, agentConfig?: AgentConfig) {
+  function getOrCreateClaw(agentConfig?: AgentConfig) {
+    const config = loadConfig(workspacePath)
     const provider = agentConfig?.provider || config.provider || 'anthropic'
     const apiKey = agentConfig?.apiKey || config.apiKey || ''
     const baseUrl = agentConfig?.baseUrl || config.baseUrl
@@ -105,9 +100,6 @@ export function createClawLLMStream(
 
     const hash = `${provider}:${apiKey?.slice(-8)}:${baseUrl}:${model}`
     if (claw && hash === lastConfigHash) return claw
-
-    // Ensure singleton exists
-    const ai = getAgentic({ provider, apiKey, baseUrl, model })
 
     // Build tools
     let tools = [
@@ -134,8 +126,19 @@ export function createClawLLMStream(
         }))
       : undefined
 
+    // If agent has custom LLM config, create a fresh Agentic instance for it.
+    // Otherwise use the default `ai` which was configured at startup.
+    let agenticInstance = ai
+    if (agentConfig?.provider || agentConfig?.apiKey) {
+      // @ts-ignore
+      const { Agentic } = require('agentic')
+      agenticInstance = new Agentic({
+        llm: { provider, apiKey, baseUrl, model },
+      })
+    }
+
     console.log('[claw-bridge] creating claw — model:', model)
-    claw = ai.createClaw({ tools, systemPrompt, stream: true, providers })
+    claw = agenticInstance.createClaw({ tools, systemPrompt, stream: true, providers })
     lastConfigHash = hash
     return claw
   }
@@ -144,8 +147,6 @@ export function createClawLLMStream(
     messages: Array<{ role: string; content: any }>,
     signal: AbortSignal,
   ): AsyncGenerator<StreamChunk> {
-    const config = loadConfig(workspacePath)
-
     // MOMO-50: agent routing
     let agentConfig: AgentConfig | undefined
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -155,7 +156,7 @@ export function createClawLLMStream(
       }
     }
 
-    const clawInst = getOrCreateClaw(config, agentConfig)
+    const clawInst = getOrCreateClaw(agentConfig)
 
     const lastUserMsg = messages[messages.length - 1]
     const prompt = typeof lastUserMsg?.content === 'string'
