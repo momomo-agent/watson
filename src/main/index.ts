@@ -132,14 +132,6 @@ app.on('before-quit', () => {
   app.isQuitting = true
 })
 
-app.on('before-quit', async () => {
-  await agenticService.stop()
-})
-
-app.on('before-quit', async () => {
-  await agenticService.stop()
-})
-
 app.on('window-all-closed', () => {
   heartbeat?.stop()
   cron?.stop()

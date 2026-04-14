@@ -4,14 +4,11 @@
  * Manages a single conversation: message history, streaming, cancel, retry.
  * Uses dependency injection for LLM calls (no direct Infrastructure imports).
  *
- * MOMO-60: Tool loop is now handled by agenticAsk (via claw-bridge).
+ * Tool loop, error recovery, context compaction are all handled by Claw.
  * ChatSession consumes the stream and updates UI state.
- * The stream yields text_delta, tool_use, tool_result, tool_error, done, error events.
  */
 
 import { EventEmitter } from 'events'
-
-const MAX_AUTO_RETRIES = 3
 
 // ── Types ──
 
@@ -31,15 +28,8 @@ export interface Message {
   timestamp: number
   status: 'pending' | 'streaming' | 'tool_calling' | 'complete' | 'error' | 'cancelled'
   error?: string
-  /** Error category for UI display */
-  errorCategory?: string
-  /** Whether the error is retryable */
-  errorRetryable?: boolean
-  /** Tool calls made during this assistant turn */
   toolCalls?: ToolCallInfo[]
-  /** Current tool round (for UI progress display) */
   toolRound?: number
-  /** Agent ID for multi-agent support (MOMO-50) */
   agentId?: string
 }
 
@@ -53,35 +43,12 @@ export interface StreamChunk {
 
 /**
  * LLM stream function: takes messages + signal, yields stream chunks.
- * With claw-bridge, this handles the full tool loop internally.
+ * Claw handles the full tool loop internally.
  */
 export type LLMStreamFn = (
   messages: Array<{ role: string; content: any }>,
   signal: AbortSignal
 ) => AsyncGenerator<StreamChunk>
-
-/**
- * Tool executor function: execute a tool and return the result.
- * Still used for coding agent routing (MOMO-52).
- */
-export type ToolExecutorFn = (
-  tool: { name: string; input: any },
-  options: { signal: AbortSignal; workspacePath: string }
-) => Promise<{ success: boolean; output?: string; error?: string }>
-
-/** Optional error recovery callbacks injected from application layer */
-export interface ErrorRecoveryCallbacks {
-  prepareMessages?: (
-    messages: Array<{ role: string; content: any }>
-  ) => Promise<Array<{ role: string; content: any }>>
-  handleError?: (err: any) => {
-    classified: { short: string; detail: string; category: string; retryable: boolean }
-    action: 'retry' | 'compact' | 'failover' | 'abort'
-    retryDelayMs: number
-  }
-  checkToolCall?: (toolName: string, params: any) => { blocked: boolean; warning: boolean; reason?: string }
-  recordToolOutcome?: (toolName: string, params: any, result: any, error?: any) => void
-}
 
 export class ChatSession extends EventEmitter {
   id: string
@@ -89,27 +56,13 @@ export class ChatSession extends EventEmitter {
   messages: Message[] = []
   private activeRequests = new Map<string, AbortController>()
   private llmStream: LLMStreamFn
-  private toolExecutor?: ToolExecutorFn
-  private recovery?: ErrorRecoveryCallbacks
   private persistenceEnabled: boolean = true
 
-  constructor(
-    id: string,
-    workspacePath: string,
-    llmStream: LLMStreamFn,
-    recovery?: ErrorRecoveryCallbacks,
-    toolExecutor?: ToolExecutorFn
-  ) {
+  constructor(id: string, workspacePath: string, llmStream: LLMStreamFn) {
     super()
     this.id = id
     this.workspacePath = workspacePath
     this.llmStream = llmStream
-    this.recovery = recovery
-    this.toolExecutor = toolExecutor
-  }
-
-  async loadMessages(): Promise<void> {
-    // Messages will be loaded by the workspace manager
   }
 
   private persistMessage(message: Message): void {
@@ -141,40 +94,33 @@ export class ChatSession extends EventEmitter {
     this.persistMessage(assistantMsg)
     this.emit('update')
 
-    await this.executeRequest(assistantMsg)
+    await this.executeStream(assistantMsg)
     return assistantMsg.id
   }
 
   cancel(messageId: string): void {
-    const controller = this.activeRequests.get(messageId)
-    if (controller) {
-      controller.abort()
-    }
+    this.activeRequests.get(messageId)?.abort()
   }
 
   async retry(messageId: string): Promise<string> {
-    const failedMsg = this.messages.find((m) => m.id === messageId)
-    if (!failedMsg) throw new Error('Message not found')
+    const msg = this.messages.find((m) => m.id === messageId)
+    if (!msg) throw new Error('Message not found')
 
-    failedMsg.content = ''
-    failedMsg.status = 'pending'
-    failedMsg.error = undefined
-    failedMsg.errorCategory = undefined
-    failedMsg.errorRetryable = undefined
-    failedMsg.timestamp = Date.now()
+    msg.content = ''
+    msg.status = 'pending'
+    msg.error = undefined
+    msg.timestamp = Date.now()
     this.emit('update')
 
-    await this.executeRequest(failedMsg, 0, failedMsg.id)
-    return failedMsg.id
+    await this.executeStream(msg, msg.id)
+    return msg.id
   }
 
   /**
-   * Core request execution.
-   *
-   * MOMO-60: Tool loop is handled by agenticAsk (via claw-bridge).
-   * This method just consumes the stream and updates UI state.
+   * Consume the Claw stream and update UI state.
+   * Claw handles tool loop, error recovery, context compaction internally.
    */
-  private async executeRequest(message: Message, retryCount: number = 0, historyBeforeId?: string): Promise<void> {
+  private async executeStream(message: Message, historyBeforeId?: string): Promise<void> {
     const controller = new AbortController()
     this.activeRequests.set(message.id, controller)
 
@@ -185,9 +131,6 @@ export class ChatSession extends EventEmitter {
       this.persistMessage(message)
       this.emit('update')
 
-      // Build conversation history
-      const history = this.getHistory(historyBeforeId)
-
       if (controller.signal.aborted) {
         message.status = 'cancelled'
         message.content = message.content || '(cancelled)'
@@ -196,7 +139,7 @@ export class ChatSession extends EventEmitter {
         return
       }
 
-      // Stream from claw-bridge — agenticAsk handles the full tool loop
+      const history = this.buildHistory(historyBeforeId)
       const stream = this.llmStream(history, controller.signal)
 
       for await (const chunk of stream) {
@@ -232,7 +175,9 @@ export class ChatSession extends EventEmitter {
               const tc = message.toolCalls!.find(t => t.id === chunk.tool!.id)
               if (tc) {
                 tc.status = 'complete'
-                tc.output = typeof chunk.tool.output === 'string' ? chunk.tool.output : JSON.stringify(chunk.tool.output)
+                tc.output = typeof chunk.tool.output === 'string'
+                  ? chunk.tool.output
+                  : JSON.stringify(chunk.tool.output)
               }
               message.status = 'streaming'
               this.persistMessage(message)
@@ -267,7 +212,7 @@ export class ChatSession extends EventEmitter {
         }
       }
 
-      // Stream ended without explicit done
+      // Stream ended without explicit done/error
       if (controller.signal.aborted) {
         message.status = 'cancelled'
         message.content = message.content || '(cancelled)'
@@ -281,36 +226,9 @@ export class ChatSession extends EventEmitter {
       if (error.name === 'AbortError' || controller.signal.aborted) {
         message.status = 'cancelled'
         message.content = message.content || '(cancelled)'
-        this.persistMessage(message)
-        this.emit('update')
-        return
-      }
-
-      // Use error recovery if available
-      if (this.recovery?.handleError && retryCount < MAX_AUTO_RETRIES) {
-        const { classified, action, retryDelayMs } = this.recovery.handleError(error)
-
-        if (action === 'retry') {
-          message.status = 'pending'
-          message.content = ''
-          message.toolCalls = []
-          this.persistMessage(message)
-          this.emit('update')
-          this.activeRequests.delete(message.id)
-
-          if (retryDelayMs > 0) {
-            await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
-          }
-          return this.executeRequest(message, retryCount + 1, historyBeforeId)
-        }
-
-        message.status = 'error'
-        message.error = classified.detail
-        message.errorCategory = classified.category
-        message.errorRetryable = classified.retryable
       } else {
         message.status = 'error'
-        message.error = error.message || 'Unknown error'
+        message.error = error.message || 'Stream failed'
       }
       this.persistMessage(message)
       this.emit('update')
@@ -319,11 +237,7 @@ export class ChatSession extends EventEmitter {
     }
   }
 
-  /**
-   * Build conversation history for LLM calls.
-   * Only includes complete messages (not pending/error/cancelled).
-   */
-  private getHistory(beforeMessageId?: string): Array<{ role: string; content: any }> {
+  private buildHistory(beforeMessageId?: string): Array<{ role: string; content: any }> {
     let msgs = this.messages
     if (beforeMessageId) {
       const idx = msgs.findIndex((m) => m.id === beforeMessageId)
