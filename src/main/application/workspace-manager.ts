@@ -2,20 +2,16 @@
  * WorkspaceManager — Application Layer
  *
  * Bridges domain (ChatSession) with infrastructure (Claw, MCP, ToolRunner).
- * Injects dependencies via constructor/factory pattern.
- *
- * MOMO-60: Claw handles streaming, tool loop, error recovery, context compaction.
- *          ChatSession only consumes the stream and updates UI state.
+ * Uses workspace-db for per-workspace persistence.
  */
 
 import { ChatSession } from '../domain/chat-session'
-import { ToolRunner } from '../infrastructure/tool-runner'
 import { McpManager } from '../infrastructure/mcp-manager'
-import { messageStore, sessionStore } from './persistence-handlers'
 import { AgentManager } from '../infrastructure/agent-manager'
 import { CodingAgentManager } from '../infrastructure/coding-agent-manager'
 import { CodingAgentExecutor } from '../infrastructure/coding-agent-executor'
 import { createClawLLMStream } from '../infrastructure/claw-bridge'
+import * as db from '../infrastructure/workspace-db'
 import type { AgentConfig } from '../infrastructure/agent-manager'
 
 export class WorkspaceManager {
@@ -25,7 +21,6 @@ export class WorkspaceManager {
 
   setMcpManager(manager: McpManager) {
     this.mcpManager = manager
-    ToolRunner.setMcpManager(manager)
   }
 
   getCodingAgentManager(): CodingAgentManager {
@@ -62,7 +57,7 @@ export class Workspace {
     return this.agentManager
   }
 
-  /** MOMO-52: Route message to coding agent (Claude Code, etc.) */
+  /** Route message to coding agent (Claude Code, etc.) */
   async routeToCodingAgent(
     agentConfig: AgentConfig,
     message: string,
@@ -90,40 +85,38 @@ export class Workspace {
       const llmStream = createClawLLMStream(this.path, this.mcpManager, this.agentManager)
       const session = new ChatSession(sessionId, this.path, llmStream)
 
-      // Load persisted messages
-      const saved = messageStore.load(sessionId, this.path)
+      // Load persisted messages from per-workspace DB
+      const saved = db.loadMessages(this.path, sessionId)
       session.messages = saved.map(m => ({
         id: m.id,
         role: m.role as 'user' | 'assistant',
         content: m.content,
-        timestamp: m.timestamp || m.createdAt,
+        timestamp: m.timestamp,
         status: m.status as any,
         error: m.error,
         toolCalls: m.toolCalls,
         agentId: m.agentId,
       }))
 
-      // Ensure session exists in SessionStore
-      if (!sessionStore.getSession(sessionId)) {
-        sessionStore.createSession(sessionId, 'New Chat', { participants: [this.path] })
+      // Ensure session record exists
+      if (!db.getSession(this.path, sessionId)) {
+        db.createSession(this.path, sessionId, 'New Chat')
       }
 
-      // Wire persistence
+      // Wire persistence — save to per-workspace DB
       session.on('persist', (message) => {
-        messageStore.save({
+        db.saveMessage(this.path, {
           id: message.id,
           sessionId,
-          workspaceId: this.path,
           role: message.role,
           content: message.content,
-          status: message.status,
-          createdAt: message.timestamp,
           timestamp: message.timestamp,
+          status: message.status,
           toolCalls: message.toolCalls,
           error: message.error,
           agentId: message.agentId,
         })
-        sessionStore.touchSession(sessionId)
+        db.touchSession(this.path, sessionId)
       })
 
       this.sessions.set(sessionId, session)

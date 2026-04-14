@@ -1,69 +1,69 @@
 /**
  * Persistence IPC Handlers
  *
- * Bridges renderer (Vue) to SQLite stores (SessionStore, MessageStore)
- * for full session + message persistence.
- *
- * MOMO-51: Complete persistence — sessions and messages survive restart.
+ * Bridges renderer (Vue) to per-workspace SQLite (workspace-db).
+ * All operations require a workspace path — resolved from current workspace.
  */
 
 import { ipcMain, BrowserWindow } from 'electron'
-import { MessageStore } from '../infrastructure/message-store'
-import { SessionStore } from '../infrastructure/session-store'
+import * as db from '../infrastructure/workspace-db'
+import { getCurrentWorkspace } from '../infrastructure/workspace-registry'
 
-const messageStore = new MessageStore()
-const sessionStore = new SessionStore()
-
-export { messageStore, sessionStore }
+function wsPath(): string {
+  const ws = getCurrentWorkspace()
+  if (!ws) throw new Error('No active workspace')
+  return ws.path
+}
 
 export function registerPersistenceHandlers(window: BrowserWindow) {
-  // ── Message persistence ──
+  // ── Messages ──
 
   ipcMain.handle('messages:save', (_, message) => {
-    messageStore.save(message)
+    db.saveMessage(wsPath(), {
+      id: message.id,
+      sessionId: message.sessionId,
+      role: message.role,
+      content: message.content,
+      timestamp: message.timestamp || message.createdAt,
+      status: message.status,
+      toolCalls: message.toolCalls,
+      error: message.error,
+      agentId: message.agentId,
+      metadata: message.metadata,
+    })
   })
 
-  ipcMain.handle('messages:load', (_, { sessionId, workspaceId }) => {
-    return messageStore.load(sessionId, workspaceId)
+  ipcMain.handle('messages:load', (_, { sessionId }) => {
+    return db.loadMessages(wsPath(), sessionId)
   })
 
-  ipcMain.handle('messages:clear', (_, { sessionId, workspaceId }) => {
-    messageStore.clear(sessionId, workspaceId)
+  ipcMain.handle('messages:clear', (_, { sessionId }) => {
+    db.clearMessages(wsPath(), sessionId)
   })
 
-  // ── Session persistence ──
+  // ── Sessions ──
 
-  ipcMain.handle('sessions:list', (_) => {
-    return sessionStore.listSessions()
+  ipcMain.handle('sessions:list', () => {
+    return db.listSessions(wsPath())
   })
 
   ipcMain.handle('sessions:get', (_, { sessionId }) => {
-    return sessionStore.getSession(sessionId)
+    return db.getSession(wsPath(), sessionId)
   })
 
   ipcMain.handle('sessions:create', (_, { id, title, mode, participants }) => {
-    return sessionStore.createSession(id, title, { mode, participants })
-  })
-
-  ipcMain.handle('sessions:update', (_, { sessionId, updates }) => {
-    sessionStore.updateSession(sessionId, updates)
+    return db.createSession(wsPath(), id, title, { mode, participants })
   })
 
   ipcMain.handle('sessions:delete', (_, { sessionId }) => {
-    // Delete session and its messages
-    sessionStore.deleteSession(sessionId)
-    // Also clear messages (use a broad workspace match — messages store uses workspace_id)
-    // We iterate known workspace IDs from the messages table
-    const sessionIds = messageStore.listSessionIds()
-    // Actually, just delete all messages with this session_id directly
-    messageStore.clearBySessionId(sessionId)
+    db.deleteSession(wsPath(), sessionId)
   })
 
   ipcMain.handle('sessions:rename', (_, { sessionId, title }) => {
-    sessionStore.updateSession(sessionId, { title })
+    db.renameSession(wsPath(), sessionId, title)
   })
 
   ipcMain.handle('sessions:touch', (_, { sessionId }) => {
-    sessionStore.touchSession(sessionId)
+    db.touchSession(wsPath(), sessionId)
   })
 }

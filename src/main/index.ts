@@ -21,22 +21,25 @@ import { registerFileWatcherHandlers, startFileWatcher, stopAllWatchers } from '
 import { HeartbeatScheduler } from './application/heartbeat-scheduler'
 import { CronScheduler } from './application/cron-scheduler'
 import { TrayManager } from './application/tray-manager'
-import { WorkspaceManager } from './domain/workspace-manager'
 import { McpManager } from './infrastructure/mcp-manager'
 import { ToolRunner } from './infrastructure/tool-runner'
 import { loadConfig } from './infrastructure/config'
 import { SkillManager } from './domain/skill-manager'
 import { configureAgentic } from './infrastructure/claw-bridge'
+import { initRegistry, getCurrentWorkspace } from './infrastructure/workspace-registry'
+import { closeAll as closeAllDbs } from './infrastructure/workspace-db'
 
 let mainWindow: BrowserWindow | null = null
 let trayManager: TrayManager | null = null
-const workspaceManager = new WorkspaceManager()
 const mcpManager = new McpManager()
 let skillManager: SkillManager | null = null
 let heartbeat: HeartbeatScheduler | null = null
 let cron: CronScheduler | null = null
 
 function createWindow() {
+  // Initialize workspace registry
+  initRegistry()
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -48,13 +51,12 @@ function createWindow() {
     }
   })
 
-  // 初始化 Tray
   trayManager = new TrayManager(mainWindow)
   trayManager.initialize()
 
-  // 窗口关闭时隐藏而不是退出（macOS 风格）
+  // macOS: hide on close instead of quit
   mainWindow.on('close', (event) => {
-    if (process.platform === 'darwin' && !app.isQuitting) {
+    if (process.platform === 'darwin' && !(app as any).isQuitting) {
       event.preventDefault()
       mainWindow?.hide()
     }
@@ -62,7 +64,6 @@ function createWindow() {
 
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
-    // DevTools 只在 WATSON_DEVTOOLS=1 时打开
     if (process.env.WATSON_DEVTOOLS === '1') {
       mainWindow.webContents.openDevTools()
     }
@@ -70,7 +71,7 @@ function createWindow() {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
   
-  // 注册 IPC handlers
+  // Register IPC handlers
   registerChatHandlers(mainWindow, mcpManager)
   registerWorkspaceHandlers(mainWindow)
   registerPersistenceHandlers(mainWindow)
@@ -81,26 +82,22 @@ function createWindow() {
   registerTrayHandlers(trayManager)
   registerFileWatcherHandlers(mainWindow)
   
-  // 设置 MCP 管理器到 ToolRunner
   ToolRunner.setMcpManager(mcpManager)
   
-  // 启动调度器和 MCP
-  const currentWorkspace = workspaceManager.getCurrentWorkspace()
+  // Boot current workspace
+  const current = getCurrentWorkspace()
+  const wsPath = current?.path
   
-  // 初始化 SkillManager
-  skillManager = new SkillManager(currentWorkspace)
-  ToolRunner.setSkillManager(skillManager)
-  if (currentWorkspace) {
-    // Configure Agentic from workspace config
-    try {
-      configureAgentic(currentWorkspace)
-    } catch (err) {
+  if (wsPath) {
+    skillManager = new SkillManager(wsPath)
+    ToolRunner.setSkillManager(skillManager)
+
+    try { configureAgentic(wsPath) } catch (err) {
       console.warn('[Agentic] Config failed:', err)
     }
 
-    // 加载配置并连接 MCP 服务器
     try {
-      const config = loadConfig(currentWorkspace)
+      const config = loadConfig(wsPath)
       if (config.mcpServers) {
         mcpManager.connectAll(config.mcpServers).catch(err => {
           console.error('[MCP] Connection failed:', err)
@@ -110,33 +107,31 @@ function createWindow() {
       console.warn('[MCP] Config load failed:', err)
     }
     
-    heartbeat = new HeartbeatScheduler(currentWorkspace)
+    heartbeat = new HeartbeatScheduler(wsPath)
     heartbeat.start()
     
-    cron = new CronScheduler(currentWorkspace)
+    cron = new CronScheduler(wsPath)
     cron.addJob('daily-cleanup', '0 2 * * *', () => {
       console.log('[Cron] Daily cleanup at 2:00 AM')
     })
     cron.start()
     
     setSchedulers(heartbeat, cron)
-    
-    // MOMO-55: Start file watcher for memory auto-sync
-    startFileWatcher(currentWorkspace, mainWindow)
+    startFileWatcher(wsPath, mainWindow)
   }
 }
 
 app.whenReady().then(createWindow)
 
 app.on('before-quit', () => {
-  app.isQuitting = true
+  ;(app as any).isQuitting = true
 })
 
 app.on('window-all-closed', () => {
   heartbeat?.stop()
   cron?.stop()
-  stopAllWatchers() // MOMO-55: Clean up file watchers
-  // macOS 上保持 app 运行（tray 模式）
+  stopAllWatchers()
+  closeAllDbs()
   if (process.platform !== 'darwin') {
     app.quit()
   }
