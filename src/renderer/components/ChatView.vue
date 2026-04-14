@@ -30,6 +30,7 @@ watchEffect(() => {
 const messages = computed(() => chatSession.value.messages.value)
 const isLoading = computed(() => chatSession.value.isLoading.value)
 const error = computed(() => chatSession.value.error.value)
+const chatStatusText = computed(() => chatSession.value.statusText.value)
 
 const appStatus = computed(() => {
   if (error.value) return 'error'
@@ -78,6 +79,7 @@ const handleRetry = (msgId: string) => chatSession.value.retry(msgId)
   <div class="chat-view">
     <MessageList
       :messages="messages"
+      :status-text="chatStatusText"
       @cancel="handleCancel"
       @retry="handleRetry"
     >

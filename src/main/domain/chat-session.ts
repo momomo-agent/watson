@@ -6,57 +6,55 @@
  *
  * Tool loop, error recovery, context compaction are all handled by Claw.
  * ChatSession consumes the stream and updates UI state.
+ *
+ * Messages use FlowSegment[] to represent the ordered sequence of
+ * thinking → tool calls → text that the LLM produces.
  */
 
 import { EventEmitter } from 'events'
+import type {
+  ChatMessage,
+  MessageStatus,
+  FlowSegment,
+  ToolCall,
+  ToolCallStatus,
+  ChatUpdateEvent,
+} from '../../shared/chat-types'
 
-// ── Types ──
-
-export interface ToolCallInfo {
-  id: string
-  name: string
-  input: any
-  status: 'pending' | 'running' | 'complete' | 'error' | 'blocked'
-  output?: string
-  error?: string
-}
-
-export interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: number
-  status: 'pending' | 'streaming' | 'tool_calling' | 'complete' | 'error' | 'cancelled'
-  error?: string
-  toolCalls?: ToolCallInfo[]
-  toolRound?: number
-  agentId?: string
-}
+// ── Stream Protocol ──
 
 export interface StreamChunk {
-  type: 'text' | 'tool_use' | 'tool_result' | 'tool_error' | 'done' | 'error'
+  type: 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'tool_error' | 'done' | 'error'
   text?: string
-  tool?: { id: string; name: string; input?: any; output?: any; error?: string }
+  thinking?: string
+  tool?: {
+    id: string
+    name: string
+    input?: any
+    output?: any
+    error?: string
+    durationMs?: number
+  }
   stopReason?: string
   error?: string
+  errorCategory?: string
+  errorRetryable?: boolean
 }
 
-/**
- * LLM stream function: takes messages + signal, yields stream chunks.
- * Claw handles the full tool loop internally.
- */
 export type LLMStreamFn = (
   messages: Array<{ role: string; content: any }>,
   signal: AbortSignal
 ) => AsyncGenerator<StreamChunk>
 
+// ── Session ──
+
 export class ChatSession extends EventEmitter {
   id: string
   workspacePath: string
-  messages: Message[] = []
+  messages: ChatMessage[] = []
   private activeRequests = new Map<string, AbortController>()
   private llmStream: LLMStreamFn
-  private persistenceEnabled: boolean = true
+  private statusText: string | null = null
 
   constructor(id: string, workspacePath: string, llmStream: LLMStreamFn) {
     super()
@@ -65,34 +63,33 @@ export class ChatSession extends EventEmitter {
     this.llmStream = llmStream
   }
 
-  private persistMessage(message: Message): void {
-    if (!this.persistenceEnabled) return
-    this.emit('persist', message)
-  }
+  // ── Public API ──
 
   async sendMessage(text: string, agentId?: string): Promise<string> {
-    const userMsg: Message = {
-      id: this.generateId(),
+    const userMsg: ChatMessage = {
+      id: this.genId(),
       role: 'user',
       content: text,
       timestamp: Date.now(),
       status: 'complete',
     }
     this.messages.push(userMsg)
-    this.persistMessage(userMsg)
-    this.emit('update')
+    this.persist(userMsg)
+    this.emitUpdate()
 
-    const assistantMsg: Message = {
-      id: this.generateId(),
+    const assistantMsg: ChatMessage = {
+      id: this.genId(),
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
       status: 'pending',
+      flow: [],
+      toolCalls: [],
       agentId,
     }
     this.messages.push(assistantMsg)
-    this.persistMessage(assistantMsg)
-    this.emit('update')
+    this.persist(assistantMsg)
+    this.emitUpdate()
 
     await this.executeStream(assistantMsg)
     return assistantMsg.id
@@ -103,39 +100,75 @@ export class ChatSession extends EventEmitter {
   }
 
   async retry(messageId: string): Promise<string> {
-    const msg = this.messages.find((m) => m.id === messageId)
+    const msg = this.messages.find(m => m.id === messageId)
     if (!msg) throw new Error('Message not found')
 
     msg.content = ''
     msg.status = 'pending'
     msg.error = undefined
+    msg.flow = []
+    msg.toolCalls = []
     msg.timestamp = Date.now()
-    this.emit('update')
+    this.emitUpdate()
 
     await this.executeStream(msg, msg.id)
     return msg.id
   }
 
-  /**
-   * Consume the Claw stream and update UI state.
-   * Claw handles tool loop, error recovery, context compaction internally.
-   */
-  private async executeStream(message: Message, historyBeforeId?: string): Promise<void> {
+  getUpdateEvent(): ChatUpdateEvent {
+    return {
+      sessionId: this.id,
+      messages: this.messages,
+      statusText: this.statusText || undefined,
+    }
+  }
+
+  // ── Stream Execution ──
+
+  private async executeStream(message: ChatMessage, historyBeforeId?: string): Promise<void> {
     const controller = new AbortController()
     this.activeRequests.set(message.id, controller)
 
+    // Flow builder state
+    let currentThinking: FlowSegment | null = null
+    let currentToolGroup: FlowSegment | null = null
+
+    const ensureFlow = () => { if (!message.flow) message.flow = [] }
+    const ensureToolCalls = () => { if (!message.toolCalls) message.toolCalls = [] }
+
+    const flushThinking = () => {
+      if (currentThinking) {
+        ensureFlow()
+        message.flow!.push(currentThinking)
+        currentThinking = null
+      }
+    }
+
+    const flushToolGroup = () => {
+      if (currentToolGroup) {
+        ensureFlow()
+        message.flow!.push(currentToolGroup)
+        currentToolGroup = null
+      }
+    }
+
+    const getOrCreateToolGroup = (): FlowSegment & { type: 'tool_group' } => {
+      if (!currentToolGroup || currentToolGroup.type !== 'tool_group') {
+        flushThinking()
+        flushToolGroup()
+        currentToolGroup = { type: 'tool_group', tools: [] }
+      }
+      return currentToolGroup as FlowSegment & { type: 'tool_group' }
+    }
+
     try {
       message.status = 'streaming'
-      message.toolCalls = []
-      message.toolRound = 0
-      this.persistMessage(message)
-      this.emit('update')
+      this.setStatus('正在回复...')
+      this.persist(message)
+      this.emitUpdate()
 
       if (controller.signal.aborted) {
-        message.status = 'cancelled'
-        message.content = message.content || '(cancelled)'
-        this.persistMessage(message)
-        this.emit('update')
+        this.finishMessage(message, 'cancelled')
         return
       }
 
@@ -146,109 +179,194 @@ export class ChatSession extends EventEmitter {
         if (controller.signal.aborted) break
 
         switch (chunk.type) {
-          case 'text':
-            if (chunk.text) {
-              message.content += chunk.text
-              message.status = 'streaming'
-              this.persistMessage(message)
-              this.emit('update')
+          case 'thinking': {
+            if (chunk.thinking) {
+              flushToolGroup()
+              if (!currentThinking) {
+                currentThinking = { type: 'thinking', content: '' }
+              }
+              if (currentThinking.type === 'thinking') {
+                currentThinking.content += chunk.thinking
+              }
+              this.setStatus('正在思考...')
+              this.emitUpdate()
             }
             break
+          }
 
-          case 'tool_use':
+          case 'text': {
+            if (chunk.text) {
+              flushThinking()
+              flushToolGroup()
+              message.content += chunk.text
+
+              // Add or append to text segment in flow
+              ensureFlow()
+              const lastSeg = message.flow![message.flow!.length - 1]
+              if (lastSeg?.type === 'text') {
+                lastSeg.content += chunk.text
+              } else {
+                message.flow!.push({ type: 'text', content: chunk.text })
+              }
+
+              message.status = 'streaming'
+              this.setStatus('正在回复...')
+              this.persist(message)
+              this.emitUpdate()
+            }
+            break
+          }
+
+          case 'tool_use': {
             if (chunk.tool) {
-              message.toolRound = (message.toolRound || 0) + 1
-              message.status = 'tool_calling'
-              message.toolCalls!.push({
+              flushThinking()
+              const toolCall: ToolCall = {
                 id: chunk.tool.id,
                 name: chunk.tool.name,
-                input: chunk.tool.input,
+                input: chunk.tool.input || {},
                 status: 'running',
-              })
-              this.persistMessage(message)
-              this.emit('update')
+              }
+
+              // Add to flat list
+              ensureToolCalls()
+              message.toolCalls!.push(toolCall)
+
+              // Add to flow tool group
+              const group = getOrCreateToolGroup()
+              group.tools.push(toolCall)
+
+              message.status = 'tool_calling'
+              this.setStatus(`正在使用 ${chunk.tool.name}...`)
+              this.persist(message)
+              this.emitUpdate()
             }
             break
+          }
 
-          case 'tool_result':
+          case 'tool_result': {
             if (chunk.tool) {
-              const tc = message.toolCalls!.find(t => t.id === chunk.tool!.id)
+              const tc = this.findToolCall(message, chunk.tool.id)
               if (tc) {
                 tc.status = 'complete'
                 tc.output = typeof chunk.tool.output === 'string'
                   ? chunk.tool.output
                   : JSON.stringify(chunk.tool.output)
+                if (chunk.tool.durationMs) tc.durationMs = chunk.tool.durationMs
               }
               message.status = 'streaming'
-              this.persistMessage(message)
-              this.emit('update')
+              this.setStatus('正在回复...')
+              this.persist(message)
+              this.emitUpdate()
             }
             break
+          }
 
-          case 'tool_error':
+          case 'tool_error': {
             if (chunk.tool) {
-              const tc = message.toolCalls!.find(t => t.id === chunk.tool!.id)
+              const tc = this.findToolCall(message, chunk.tool.id)
               if (tc) {
                 tc.status = 'error'
                 tc.error = chunk.tool.error
               }
-              this.persistMessage(message)
-              this.emit('update')
+              this.persist(message)
+              this.emitUpdate()
             }
             break
+          }
 
-          case 'done':
-            message.status = 'complete'
-            this.persistMessage(message)
-            this.emit('update')
+          case 'done': {
+            flushThinking()
+            flushToolGroup()
+            this.finishMessage(message, 'complete')
             return
+          }
 
-          case 'error':
-            message.status = 'error'
+          case 'error': {
+            flushThinking()
+            flushToolGroup()
             message.error = chunk.error || 'Unknown error'
-            this.persistMessage(message)
-            this.emit('update')
+            message.errorCategory = chunk.errorCategory as any
+            message.errorRetryable = chunk.errorRetryable
+            this.finishMessage(message, 'error')
             return
+          }
         }
       }
 
       // Stream ended without explicit done/error
+      flushThinking()
+      flushToolGroup()
       if (controller.signal.aborted) {
-        message.status = 'cancelled'
-        message.content = message.content || '(cancelled)'
-      } else if ((message.status as string) !== 'complete' && (message.status as string) !== 'error') {
-        message.status = 'complete'
+        this.finishMessage(message, 'cancelled')
+      } else if (message.status !== 'complete' && message.status !== 'error') {
+        this.finishMessage(message, 'complete')
       }
-      this.persistMessage(message)
-      this.emit('update')
 
     } catch (error: any) {
+      flushThinking()
+      flushToolGroup()
       if (error.name === 'AbortError' || controller.signal.aborted) {
-        message.status = 'cancelled'
-        message.content = message.content || '(cancelled)'
+        this.finishMessage(message, 'cancelled')
       } else {
-        message.status = 'error'
         message.error = error.message || 'Stream failed'
+        this.finishMessage(message, 'error')
       }
-      this.persistMessage(message)
-      this.emit('update')
     } finally {
       this.activeRequests.delete(message.id)
     }
   }
 
+  // ── Helpers ──
+
+  private findToolCall(message: ChatMessage, toolId: string): ToolCall | undefined {
+    // Search flat list
+    const fromFlat = message.toolCalls?.find(t => t.id === toolId)
+    if (fromFlat) return fromFlat
+
+    // Search flow segments (same object reference if added correctly)
+    for (const seg of message.flow || []) {
+      if (seg.type === 'tool_group') {
+        const found = seg.tools.find(t => t.id === toolId)
+        if (found) return found
+      }
+    }
+    return undefined
+  }
+
+  private finishMessage(message: ChatMessage, status: MessageStatus): void {
+    message.status = status
+    if (status === 'cancelled' && !message.content) {
+      message.content = '(cancelled)'
+    }
+    this.setStatus(null)
+    this.persist(message)
+    this.emitUpdate()
+  }
+
+  private setStatus(text: string | null): void {
+    this.statusText = text
+  }
+
+  private emitUpdate(): void {
+    this.emit('update', this.getUpdateEvent())
+  }
+
+  private persist(message: ChatMessage): void {
+    this.emit('persist', message)
+  }
+
   private buildHistory(beforeMessageId?: string): Array<{ role: string; content: any }> {
     let msgs = this.messages
     if (beforeMessageId) {
-      const idx = msgs.findIndex((m) => m.id === beforeMessageId)
+      const idx = msgs.findIndex(m => m.id === beforeMessageId)
       if (idx >= 0) msgs = msgs.slice(0, idx)
     }
     return msgs
-      .filter((m) => m.status === 'complete' && m.content)
-      .map((m) => ({ role: m.role, content: m.content }))
+      .filter(m => m.status === 'complete' && m.content)
+      .map(m => ({ role: m.role, content: m.content }))
   }
 
-  private generateId(): string {
+  private genId(): string {
     return Date.now().toString(36) + Math.random().toString(36).slice(2)
   }
 }

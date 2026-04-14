@@ -72,7 +72,8 @@ async function handleCodingAgentMessage(
         if (!mainWindow.isDestroyed()) {
           mainWindow.webContents.send('chat:update', {
             sessionId,
-            messages: JSON.parse(JSON.stringify(session.messages))
+            messages: JSON.parse(JSON.stringify(session.messages)),
+            statusText: '正在回复...',
           })
         }
       }
@@ -110,7 +111,7 @@ function ensureSessionListener(session: any, sessionId: string, mainWindow: Brow
     }
   }
 
-  session.on('update', () => {
+  session.on('update', (event?: any) => {
     if (!mainWindow.isDestroyed()) {
       const messages = session.messages || []
 
@@ -127,7 +128,6 @@ function ensureSessionListener(session: any, sessionId: string, mainWindow: Brow
           }
         }
       } else {
-        // Active session — just mark as seen without incrementing
         for (const msg of messages) {
           if (msg.role === 'assistant' && msg.status === 'complete') {
             countedMessageIds.add(msg.id)
@@ -137,7 +137,8 @@ function ensureSessionListener(session: any, sessionId: string, mainWindow: Brow
 
       mainWindow.webContents.send('chat:update', {
         sessionId,
-        messages: JSON.parse(JSON.stringify(messages))  // deep clone to avoid reactivity issues
+        messages: JSON.parse(JSON.stringify(messages)),
+        statusText: event?.statusText || null,
       })
     }
   })
