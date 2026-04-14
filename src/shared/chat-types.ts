@@ -125,6 +125,18 @@ export interface ChatMessage {
 
   // Metadata
   agentId?: string            // which agent produced this (for multi-agent routing)
+  timing?: MessageTiming      // performance metrics for this response
+}
+
+// ── Timing ──
+
+export interface MessageTiming {
+  ttft?: number               // time to first token (ms)
+  totalMs?: number            // total response time (ms)
+  llmMs?: number              // LLM inference time (ms)
+  toolMs?: number             // tool execution time (ms)
+  rounds?: number             // number of LLM rounds (tool loops)
+  cacheHit?: boolean          // prompt cache hit
 }
 
 export interface MessageAttachment {

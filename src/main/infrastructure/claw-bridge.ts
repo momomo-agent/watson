@@ -200,7 +200,7 @@ export function createClawLLMStream(
           yield { type: 'error', error: event.error || event.message }
           break
         case 'timing':
-          yield { type: 'timing' as any, round: event.round, phase: event.phase, ms: event.ms, ttft: event.ttft }
+          yield { type: 'timing', round: event.round, phase: event.phase, ms: event.ms, ttft: event.ttft }
           break
       }
     }

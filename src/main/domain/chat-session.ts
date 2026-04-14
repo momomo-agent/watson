@@ -25,7 +25,7 @@ import type { SenseContext } from './sense-loop'
 // ── Stream Protocol ──
 
 export interface StreamChunk {
-  type: 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'tool_error' | 'done' | 'error'
+  type: 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'tool_error' | 'done' | 'error' | 'timing'
   text?: string
   thinking?: string
   tool?: {
@@ -40,6 +40,12 @@ export interface StreamChunk {
   error?: string
   errorCategory?: string
   errorRetryable?: boolean
+  // Timing
+  round?: number
+  phase?: string
+  ms?: number
+  ttft?: number
+  cacheHit?: boolean
 }
 
 export type LLMStreamFn = (
@@ -181,6 +187,7 @@ export class ChatSession extends EventEmitter {
 
       const history = this.buildHistory(historyBeforeId)
       const stream = this.llmStream(history, controller.signal)
+      const startTime = Date.now()
 
       for await (const chunk of stream) {
         if (controller.signal.aborted) break
@@ -205,6 +212,13 @@ export class ChatSession extends EventEmitter {
             if (chunk.text) {
               flushThinking()
               flushToolGroup()
+
+              // Capture TTFT on first text token
+              if (!message.timing) message.timing = {}
+              if (!message.timing.ttft) {
+                message.timing.ttft = Date.now() - startTime
+              }
+
               message.content += chunk.text
 
               // Add or append to text segment in flow
@@ -284,6 +298,9 @@ export class ChatSession extends EventEmitter {
           case 'done': {
             flushThinking()
             flushToolGroup()
+            // Capture total time
+            if (!message.timing) message.timing = {}
+            message.timing.totalMs = Date.now() - startTime
             this.finishMessage(message, 'complete')
             return
           }
@@ -296,6 +313,19 @@ export class ChatSession extends EventEmitter {
             message.errorRetryable = chunk.errorRetryable
             this.finishMessage(message, 'error')
             return
+          }
+
+          default: {
+            // Handle timing events
+            if (chunk.type === 'timing') {
+              if (!message.timing) message.timing = {}
+              if (chunk.ttft) message.timing.ttft = chunk.ttft
+              if (chunk.ms && chunk.phase === 'llm') message.timing.llmMs = (message.timing.llmMs || 0) + chunk.ms
+              if (chunk.ms && chunk.phase === 'tool') message.timing.toolMs = (message.timing.toolMs || 0) + chunk.ms
+              if (chunk.round) message.timing.rounds = chunk.round
+              if (chunk.cacheHit !== undefined) message.timing.cacheHit = chunk.cacheHit
+            }
+            break
           }
         }
       }

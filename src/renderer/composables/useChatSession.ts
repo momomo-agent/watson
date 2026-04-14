@@ -40,8 +40,17 @@ export function useChatSession(sessionId: string) {
   loadMessages()
   cleanup = backend.on('chat:update', handleUpdate)
 
+  // Replay missed events when window becomes visible again
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      loadMessages() // Re-fetch full state — simplest, most reliable
+    }
+  }
+  document.addEventListener('visibilitychange', onVisibilityChange)
+
   onUnmounted(() => {
     if (cleanup) { cleanup(); cleanup = null }
+    document.removeEventListener('visibilitychange', onVisibilityChange)
   })
 
   const sendMessage = async (text: string, agentId?: string) => {

@@ -96,6 +96,7 @@ export class Workspace {
         error: m.error,
         toolCalls: m.toolCalls,
         agentId: m.agentId,
+        timing: m.metadata?.timing,
       }))
 
       // Ensure session record exists
@@ -115,6 +116,7 @@ export class Workspace {
           toolCalls: message.toolCalls,
           error: message.error,
           agentId: message.agentId,
+          metadata: message.timing ? { timing: message.timing } : undefined,
         })
         db.touchSession(this.path, sessionId)
       })

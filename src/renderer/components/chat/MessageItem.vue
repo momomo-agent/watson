@@ -91,6 +91,11 @@ const flowSegments = computed<FlowSegment[]>(() => {
 })
 
 const hasFlow = computed(() => flowSegments.value.length > 0)
+
+function formatMs(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  return `${(ms / 1000).toFixed(1)}s`
+}
 </script>
 
 <template>
@@ -187,6 +192,19 @@ const hasFlow = computed(() => flowSegments.value.length > 0)
         @cancel="emit('cancel')"
         @retry="emit('retry')"
       />
+
+      <!-- Timing (assistant, completed only) -->
+      <div v-if="!isUser && message.status === 'complete' && message.timing" class="msg-timing">
+        <span v-if="message.timing.ttft" class="timing-item" title="Time to first token">
+          ⚡ {{ formatMs(message.timing.ttft) }}
+        </span>
+        <span v-if="message.timing.totalMs" class="timing-item" title="Total response time">
+          ⏱ {{ formatMs(message.timing.totalMs) }}
+        </span>
+        <span v-if="message.timing.cacheHit" class="timing-item timing-cache" title="Prompt cache hit">
+          ✦ cached
+        </span>
+      </div>
     </div>
   </div>
 </template>
@@ -361,5 +379,30 @@ const hasFlow = computed(() => flowSegments.value.length > 0)
 @keyframes bounce {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
   30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* Timing */
+.msg-timing {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 0.6875rem;
+  color: var(--text-quaternary, #555);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.message-item:hover .msg-timing {
+  opacity: 1;
+}
+
+.timing-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.timing-cache {
+  color: var(--accent, #6d9fff);
 }
 </style>

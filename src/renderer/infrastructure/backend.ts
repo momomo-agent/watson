@@ -23,6 +23,9 @@ export interface BackendAdapter {
 
   /** Unsubscribe (optional — prefer using the cleanup function from on()) */
   off?(channel: string, callback: (...args: any[]) => void): void
+
+  /** Replay missed events from SessionBus since last known seq */
+  replayFromBus?(sinceSeq: number, sessionId?: string): Promise<any[]>
 }
 
 // ── Electron Adapter (IPC via preload) ──
@@ -38,6 +41,10 @@ class ElectronAdapter implements BackendAdapter {
 
   off(channel: string, callback: (...args: any[]) => void): void {
     (window as any).api.off?.(channel, callback)
+  }
+
+  async replayFromBus(sinceSeq: number, sessionId?: string): Promise<any[]> {
+    return (window as any).api.invoke('session-bus:replay', { sinceSeq, sessionId })
   }
 }
 
