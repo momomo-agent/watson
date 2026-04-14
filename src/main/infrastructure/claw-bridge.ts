@@ -1,20 +1,17 @@
 /**
  * Claw Bridge — Infrastructure Layer
  *
- * Wraps the Agentic class (from the `agentic` umbrella package) to provide
- * Watson's ChatSession with a LLMStreamFn that handles the complete tool loop.
- *
- * Watson only imports `agentic` — never touches agentic-core/claw/memory directly.
- *
- * The Agentic instance handles:
- * - Token-level streaming (ai.stream())
- * - Tool loop (multi-round, via agenticAsk internally)
+ * Watson only imports `agentic` (the umbrella package).
+ * Creates a Claw instance via ai.createClaw() which handles:
+ * - Session memory (conversation history)
+ * - Context compaction
+ * - Tool loop (multi-round, via agenticAsk)
+ * - Token-level streaming
  * - Loop detection
  * - Provider failover
- * - Eager tool execution
  *
- * Watson's tools (file_read, shell_exec, etc.) are registered via ai.tools,
- * which delegates to agentic-core's toolRegistry.
+ * Watson's tools (file_read, shell_exec, etc.) are passed to createClaw({ tools }).
+ * Claw's chat() returns an async generator that yields streaming events.
  */
 
 // @ts-ignore — JS module without type declarations
@@ -29,76 +26,126 @@ import type { AgentConfig } from './agent-manager'
 import type { AgentManager } from './agent-manager'
 
 /**
- * Register Watson's built-in tools into the Agentic instance's tool registry.
+ * Build Watson's tool definitions in the format claw expects.
+ * Each tool has { name, description, parameters, execute }.
  */
-function registerWatsonTools(ai: any, workspacePath: string) {
-  const registry = ai.tools
-  registry.clear()
-
-  for (const tool of BUILTIN_TOOLS) {
-    registry.register(tool.name, {
-      description: tool.description,
-      parameters: tool.input_schema,
-      execute: async (input: any) => {
-        const controller = new AbortController()
-        const result = await ToolRunner.execute(
-          { name: tool.name, input },
-          { signal: controller.signal, workspacePath }
-        )
-        if (!result.success) {
-          throw new Error(result.error || 'Tool execution failed')
-        }
-        return result.output || 'Done'
-      },
-    })
-  }
+function buildWatsonTools(workspacePath: string) {
+  return BUILTIN_TOOLS.map(tool => ({
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.input_schema,
+    execute: async (input: any) => {
+      const controller = new AbortController()
+      const result = await ToolRunner.execute(
+        { name: tool.name, input },
+        { signal: controller.signal, workspacePath }
+      )
+      if (!result.success) {
+        throw new Error(result.error || 'Tool execution failed')
+      }
+      return result.output || 'Done'
+    },
+  }))
 }
 
 /**
- * Register MCP tools dynamically discovered at runtime.
+ * Build MCP tool definitions.
  */
-function registerMcpTools(ai: any, mcpManager: McpManager | null, workspacePath: string) {
-  if (!mcpManager) return
-  const registry = ai.tools
-
-  for (const tool of mcpManager.listTools()) {
-    if (registry.get(tool.name)) continue
-
-    registry.register(tool.name, {
-      description: tool.description,
-      parameters: tool.input_schema,
-      execute: async (input: any) => {
-        const controller = new AbortController()
-        const result = await ToolRunner.execute(
-          { name: tool.name, input },
-          { signal: controller.signal, workspacePath }
-        )
-        if (!result.success) {
-          throw new Error(result.error || 'MCP tool execution failed')
-        }
-        return result.output || 'Done'
-      },
-    })
-  }
+function buildMcpTools(mcpManager: McpManager | null, workspacePath: string) {
+  if (!mcpManager) return []
+  return mcpManager.listTools().map(tool => ({
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.input_schema,
+    execute: async (input: any) => {
+      const controller = new AbortController()
+      const result = await ToolRunner.execute(
+        { name: tool.name, input },
+        { signal: controller.signal, workspacePath }
+      )
+      if (!result.success) {
+        throw new Error(result.error || 'MCP tool execution failed')
+      }
+      return result.output || 'Done'
+    },
+  }))
 }
 
 /**
- * Create a LLMStreamFn powered by Agentic.stream().
+ * Create a LLMStreamFn powered by Claw.
  *
- * This replaces EnhancedLLMClient + ChatSession's tool loop.
- * The returned generator yields StreamChunk events:
- * - { type: 'text', text } — token-level text deltas
- * - { type: 'tool_use', tool: { id, name, input } } — tool call started
- * - { type: 'tool_result', tool: { id, name, output } } — tool call completed
- * - { type: 'tool_error', tool: { id, name, error } } — tool call failed
- * - { type: 'done', stopReason } — stream complete
- * - { type: 'error', error } — fatal error
+ * Architecture:
+ * - One Claw instance per workspace (created lazily, reused across sessions)
+ * - Claw manages its own session memory (history for LLM)
+ * - Watson's ChatSession manages UI-side messages + SQLite persistence
+ * - claw.chat() returns async generator yielding streaming events
  */
 export function createClawLLMStream(
   workspacePath: string,
   mcpManager: McpManager | null,
   agentManager: AgentManager,
 ): LLMStreamFn {
+  // Lazy-init claw instance (reused across chat turns)
+  let claw: any = null
+  let lastConfigHash = ''
+
+  function getOrCreateClaw(config: any, agentConfig?: AgentConfig) {
+    const provider = agentConfig?.provider || config.provider || 'anthropic'
+    const apiKey = agentConfig?.apiKey || config.apiKey || ''
+    const baseUrl = agentConfig?.baseUrl || config.baseUrl
+    const model = agentConfig?.model || config.model
+
+    // Rebuild claw if config changed
+    const hash = `${provider}:${apiKey?.slice(-8)}:${baseUrl}:${model}`
+    if (claw && hash === lastConfigHash) return claw
+
+    console.log('[claw-bridge] creating claw — model:', model, 'provider:', provider)
+
+    // Build tools
+    let tools = [
+      ...buildWatsonTools(workspacePath),
+      ...buildMcpTools(mcpManager, workspacePath),
+    ]
+
+    // Filter tools if agent has restrictions
+    if (agentConfig?.tools && agentConfig.tools.length > 0) {
+      const allowed = new Set(agentConfig.tools)
+      tools = tools.filter(t => allowed.has(t.name))
+    }
+
+    // Build system prompt
+    const toolDefs = tools.map(t => ({
+      name: t.name,
+      description: t.description,
+      input_schema: t.parameters,
+    }))
+    let systemPrompt = buildSystemPrompt(workspacePath, toolDefs)
+    if (agentConfig?.systemPrompt) {
+      systemPrompt = `${agentConfig.systemPrompt}\n\n${systemPrompt}`
+    }
+
+    // Build providers for failover
+    const providers = config.providers?.length
+      ? config.providers.map((p: any) => ({
+          provider: p.provider || p.type || provider,
+          apiKey: p.apiKey || apiKey,
+          baseUrl: p.baseUrl || baseUrl,
+          model: p.model || model,
+        }))
+      : undefined
+
+    const ai = new Agentic({ provider, apiKey, baseUrl, model })
+    claw = ai.createClaw({
+      tools,
+      systemPrompt,
+      stream: true,
+      providers,
+    })
+
+    lastConfigHash = hash
+    return claw
+  }
+
   return async function* clawStream(
     messages: Array<{ role: string; content: any }>,
     signal: AbortSignal,
@@ -114,77 +161,18 @@ export function createClawLLMStream(
       }
     }
 
-    // Merge agent config with workspace config
-    const provider = agentConfig?.provider || config.provider || 'anthropic'
-    const apiKey = agentConfig?.apiKey || config.apiKey || ''
-    const baseUrl = agentConfig?.baseUrl || config.baseUrl
-    const model = agentConfig?.model || config.model
+    const clawInst = getOrCreateClaw(config, agentConfig)
 
-    console.log('[claw-bridge] model:', model, 'provider:', provider)
-
-    // Create Agentic instance with resolved config
-    const ai = new Agentic({ provider, apiKey, baseUrl, model })
-
-    // Register tools (builtin + MCP)
-    registerWatsonTools(ai, workspacePath)
-    registerMcpTools(ai, mcpManager, workspacePath)
-
-    // Get all registered tools
-    const registry = ai.tools
-    const tools = registry.list().map((t: any) => ({
-      name: t.name,
-      description: t.description,
-      parameters: t.parameters,
-      execute: t.execute,
-    }))
-
-    // Filter tools if agent has restrictions
-    let filteredTools = tools
-    if (agentConfig?.tools && agentConfig.tools.length > 0) {
-      const allowed = new Set(agentConfig.tools)
-      filteredTools = tools.filter((t: any) => allowed.has(t.name))
-    }
-
-    // Build system prompt
-    const toolDefs = filteredTools.map((t: any) => ({
-      name: t.name,
-      description: t.description,
-      input_schema: t.parameters,
-    }))
-    let systemPrompt = buildSystemPrompt(workspacePath, toolDefs)
-    if (agentConfig?.systemPrompt) {
-      systemPrompt = `${agentConfig.systemPrompt}\n\n${systemPrompt}`
-    }
-
-    // Extract prompt + history from messages
-    const lastUserIdx = messages.length - 1
-    const lastUserMsg = messages[lastUserIdx]
+    // Extract the last user message as prompt
+    const lastUserMsg = messages[messages.length - 1]
     const prompt = typeof lastUserMsg?.content === 'string'
       ? lastUserMsg.content
       : Array.isArray(lastUserMsg?.content)
         ? lastUserMsg.content.find((c: any) => c.type === 'text')?.text || ''
         : ''
 
-    const history = messages.slice(0, lastUserIdx)
-
-    // Build providers array for failover
-    const providers = config.providers?.length
-      ? config.providers.map((p: any) => ({
-          provider: p.provider || p.type || provider,
-          apiKey: p.apiKey || apiKey,
-          baseUrl: p.baseUrl || baseUrl,
-          model: p.model || model,
-        }))
-      : undefined
-
-    // Stream via Agentic — handles the full tool loop
-    const gen = ai.stream(prompt, {
-      tools: filteredTools,
-      history: history.length ? history : undefined,
-      system: systemPrompt,
-      signal,
-      providers,
-    })
+    // claw.chat() returns a thenable async generator
+    const gen = clawInst.chat(prompt, { signal })
 
     for await (const event of gen) {
       switch (event.type) {
@@ -222,7 +210,7 @@ export function createClawLLMStream(
           break
 
         case 'error':
-          yield { type: 'error', error: event.error }
+          yield { type: 'error', error: event.error || event.message }
           break
       }
     }
