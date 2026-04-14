@@ -140,6 +140,15 @@ export function createClawLLMStream(
     console.log('[claw-bridge] creating claw — model:', model)
     claw = agenticInstance.createClaw({ tools, systemPrompt, stream: true, providers })
     lastConfigHash = hash
+
+    // Pre-heat connection + prompt cache (fire-and-forget)
+    if (claw.warmup) {
+      claw.warmup().then((r: any) => {
+        if (r?.ok) console.log(`[claw-bridge] warmup done ${r.ms}ms — cache_created: ${r.cacheCreated}, cache_hit: ${r.cacheHit}`)
+        else console.warn('[claw-bridge] warmup failed:', r?.reason || r?.error)
+      }).catch(() => {})
+    }
+
     return claw
   }
 
@@ -189,6 +198,9 @@ export function createClawLLMStream(
           break
         case 'error':
           yield { type: 'error', error: event.error || event.message }
+          break
+        case 'timing':
+          yield { type: 'timing' as any, round: event.round, phase: event.phase, ms: event.ms, ttft: event.ttft }
           break
       }
     }
