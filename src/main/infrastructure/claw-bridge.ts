@@ -2,16 +2,15 @@
  * Claw Bridge — Infrastructure Layer
  *
  * Watson only imports `agentic` (the umbrella package).
- * Creates a Claw instance via ai.createClaw() which handles:
+ *
+ * Agentic is a singleton — created once at app startup, shared across all workspaces.
+ * Each workspace gets its own Claw instance (via ai.createClaw()) which handles:
  * - Session memory (conversation history)
  * - Context compaction
  * - Tool loop (multi-round, via agenticAsk)
  * - Token-level streaming
  * - Loop detection
  * - Provider failover
- *
- * Watson's tools (file_read, shell_exec, etc.) are passed to createClaw({ tools }).
- * Claw's chat() returns an async generator that yields streaming events.
  */
 
 // @ts-ignore — JS module without type declarations
@@ -25,10 +24,29 @@ import { loadConfig } from './config'
 import type { AgentConfig } from './agent-manager'
 import type { AgentManager } from './agent-manager'
 
-/**
- * Build Watson's tool definitions in the format claw expects.
- * Each tool has { name, description, parameters, execute }.
- */
+// ── Agentic Singleton ──────────────────────────────────────────
+
+let _ai: any = null
+
+/** Get or create the global Agentic instance. */
+export function getAgentic(opts?: { provider?: string; apiKey?: string; baseUrl?: string; model?: string }): any {
+  if (!_ai && opts) {
+    _ai = new Agentic(opts)
+    console.log('[claw-bridge] Agentic singleton created — provider:', opts.provider, 'model:', opts.model)
+  }
+  return _ai
+}
+
+/** Destroy the singleton (for app shutdown). */
+export function destroyAgentic(): void {
+  if (_ai) {
+    _ai.destroy()
+    _ai = null
+  }
+}
+
+// ── Tool builders ──────────────────────────────────────────────
+
 function buildWatsonTools(workspacePath: string) {
   return BUILTIN_TOOLS.map(tool => ({
     name: tool.name,
@@ -40,17 +58,12 @@ function buildWatsonTools(workspacePath: string) {
         { name: tool.name, input },
         { signal: controller.signal, workspacePath }
       )
-      if (!result.success) {
-        throw new Error(result.error || 'Tool execution failed')
-      }
+      if (!result.success) throw new Error(result.error || 'Tool execution failed')
       return result.output || 'Done'
     },
   }))
 }
 
-/**
- * Build MCP tool definitions.
- */
 function buildMcpTools(mcpManager: McpManager | null, workspacePath: string) {
   if (!mcpManager) return []
   return mcpManager.listTools().map(tool => ({
@@ -63,29 +76,24 @@ function buildMcpTools(mcpManager: McpManager | null, workspacePath: string) {
         { name: tool.name, input },
         { signal: controller.signal, workspacePath }
       )
-      if (!result.success) {
-        throw new Error(result.error || 'MCP tool execution failed')
-      }
+      if (!result.success) throw new Error(result.error || 'MCP tool execution failed')
       return result.output || 'Done'
     },
   }))
 }
 
+// ── Claw LLM Stream ───────────────────────────────────────────
+
 /**
  * Create a LLMStreamFn powered by Claw.
  *
- * Architecture:
- * - One Claw instance per workspace (created lazily, reused across sessions)
- * - Claw manages its own session memory (history for LLM)
- * - Watson's ChatSession manages UI-side messages + SQLite persistence
- * - claw.chat() returns async generator yielding streaming events
+ * One Claw per workspace (lazy, reused). Agentic is the global singleton.
  */
 export function createClawLLMStream(
   workspacePath: string,
   mcpManager: McpManager | null,
   agentManager: AgentManager,
 ): LLMStreamFn {
-  // Lazy-init claw instance (reused across chat turns)
   let claw: any = null
   let lastConfigHash = ''
 
@@ -95,36 +103,28 @@ export function createClawLLMStream(
     const baseUrl = agentConfig?.baseUrl || config.baseUrl
     const model = agentConfig?.model || config.model
 
-    // Rebuild claw if config changed
     const hash = `${provider}:${apiKey?.slice(-8)}:${baseUrl}:${model}`
     if (claw && hash === lastConfigHash) return claw
 
-    console.log('[claw-bridge] creating claw — model:', model, 'provider:', provider)
+    // Ensure singleton exists
+    const ai = getAgentic({ provider, apiKey, baseUrl, model })
 
     // Build tools
     let tools = [
       ...buildWatsonTools(workspacePath),
       ...buildMcpTools(mcpManager, workspacePath),
     ]
-
-    // Filter tools if agent has restrictions
-    if (agentConfig?.tools && agentConfig.tools.length > 0) {
+    if (agentConfig?.tools?.length) {
       const allowed = new Set(agentConfig.tools)
       tools = tools.filter(t => allowed.has(t.name))
     }
 
-    // Build system prompt
-    const toolDefs = tools.map(t => ({
-      name: t.name,
-      description: t.description,
-      input_schema: t.parameters,
-    }))
+    // System prompt
+    const toolDefs = tools.map(t => ({ name: t.name, description: t.description, input_schema: t.parameters }))
     let systemPrompt = buildSystemPrompt(workspacePath, toolDefs)
-    if (agentConfig?.systemPrompt) {
-      systemPrompt = `${agentConfig.systemPrompt}\n\n${systemPrompt}`
-    }
+    if (agentConfig?.systemPrompt) systemPrompt = `${agentConfig.systemPrompt}\n\n${systemPrompt}`
 
-    // Build providers for failover
+    // Providers for failover
     const providers = config.providers?.length
       ? config.providers.map((p: any) => ({
           provider: p.provider || p.type || provider,
@@ -134,14 +134,8 @@ export function createClawLLMStream(
         }))
       : undefined
 
-    const ai = new Agentic({ provider, apiKey, baseUrl, model })
-    claw = ai.createClaw({
-      tools,
-      systemPrompt,
-      stream: true,
-      providers,
-    })
-
+    console.log('[claw-bridge] creating claw — model:', model)
+    claw = ai.createClaw({ tools, systemPrompt, stream: true, providers })
     lastConfigHash = hash
     return claw
   }
@@ -152,7 +146,7 @@ export function createClawLLMStream(
   ): AsyncGenerator<StreamChunk> {
     const config = loadConfig(workspacePath)
 
-    // MOMO-50: Check if the last assistant message has an agentId
+    // MOMO-50: agent routing
     let agentConfig: AgentConfig | undefined
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'assistant' && (messages[i] as any).agentId) {
@@ -163,7 +157,6 @@ export function createClawLLMStream(
 
     const clawInst = getOrCreateClaw(config, agentConfig)
 
-    // Extract the last user message as prompt
     const lastUserMsg = messages[messages.length - 1]
     const prompt = typeof lastUserMsg?.content === 'string'
       ? lastUserMsg.content
@@ -171,7 +164,6 @@ export function createClawLLMStream(
         ? lastUserMsg.content.find((c: any) => c.type === 'text')?.text || ''
         : ''
 
-    // claw.chat() returns a thenable async generator
     const gen = clawInst.chat(prompt, { signal })
 
     for await (const event of gen) {
@@ -179,36 +171,21 @@ export function createClawLLMStream(
         case 'text_delta':
           yield { type: 'text', text: event.text }
           break
-
         case 'tool_use':
-          yield {
-            type: 'tool_use',
-            tool: { id: event.id, name: event.name, input: event.input },
-          }
+          yield { type: 'tool_use', tool: { id: event.id, name: event.name, input: event.input } }
           break
-
         case 'tool_result':
-          yield {
-            type: 'tool_result' as any,
-            tool: { id: event.id, name: event.name, output: event.output },
-          }
+          yield { type: 'tool_result' as any, tool: { id: event.id, name: event.name, output: event.output } }
           break
-
         case 'tool_error':
-          yield {
-            type: 'tool_error' as any,
-            tool: { id: event.id, name: event.name, error: event.error },
-          }
+          yield { type: 'tool_error' as any, tool: { id: event.id, name: event.name, error: event.error } }
           break
-
         case 'warning':
           yield { type: 'text', text: `\n⚠️ ${event.message}\n` }
           break
-
         case 'done':
           yield { type: 'done', stopReason: event.stopReason || 'end_turn' }
           break
-
         case 'error':
           yield { type: 'error', error: event.error || event.message }
           break
