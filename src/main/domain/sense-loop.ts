@@ -1,12 +1,11 @@
 /**
  * SenseLoop — Ambient perception engine
  *
- * Runs a continuous perception loop using local models (agentic-service).
- * Captures screen/environment changes, runs local inference,
- * and injects context into ChatSession.
+ * Runs a continuous perception loop. All external capabilities go through
+ * the agentic unified API — no direct sub-library imports.
  *
  * Architecture:
- *   agentic-sense (capture) → agentic-service (local model) → context buffer
+ *   agentic.sense() (capture) → agentic.think() (local model) → context buffer
  *   ChatSession reads context buffer before each cloud LLM call.
  *
  * This is the "eyes and ears" — always on, always local, zero cloud cost.
@@ -36,8 +35,6 @@ export interface SenseConfig {
   intervalMs?: number
   /** Whether to capture screen content */
   screenCapture?: boolean
-  /** Local model endpoint (agentic-service) */
-  localModelUrl?: string
   /** Minimum change threshold to emit update (0-1) */
   changeThreshold?: number
 }
@@ -49,22 +46,27 @@ export class SenseLoop extends EventEmitter {
   private timer: ReturnType<typeof setInterval> | null = null
   private running = false
   private lastContext: SenseContext | null = null
+  private ai: any = null
 
   constructor(config: SenseConfig = {}) {
     super()
     this.config = {
       intervalMs: config.intervalMs ?? 5000,
       screenCapture: config.screenCapture ?? true,
-      localModelUrl: config.localModelUrl ?? 'http://127.0.0.1:18910',
       changeThreshold: config.changeThreshold ?? 0.3,
     }
+  }
+
+  /** Inject the agentic instance (avoids top-level import in main process) */
+  setAgentic(ai: any): void {
+    this.ai = ai
   }
 
   /** Start the perception loop */
   start(): void {
     if (this.running) return
     this.running = true
-    this.tick() // immediate first tick
+    this.tick()
     this.timer = setInterval(() => this.tick(), this.config.intervalMs)
     this.emit('started')
   }
@@ -96,10 +98,10 @@ export class SenseLoop extends EventEmitter {
     if (!this.running) return
 
     try {
-      // Phase 1: Capture (agentic-sense)
+      // Phase 1: Capture via agentic.sense()
       const rawCapture = await this.capture()
 
-      // Phase 2: Local inference (agentic-service)
+      // Phase 2: Local inference via agentic.think() with local model
       const context = await this.infer(rawCapture)
 
       // Phase 3: Change detection
@@ -114,10 +116,18 @@ export class SenseLoop extends EventEmitter {
   }
 
   private async capture(): Promise<any> {
-    // TODO: Use agentic-sense for screen capture
-    // For now, use agent-control snapshot as fallback
     if (!this.config.screenCapture) return null
 
+    // Try agentic.sense() first (unified API)
+    if (this.ai?.sense) {
+      try {
+        return await this.ai.sense({ type: 'screen', compact: true })
+      } catch {
+        // Fall through to agent-control
+      }
+    }
+
+    // Fallback: agent-control CLI
     try {
       const { exec } = await import('child_process')
       const { promisify } = await import('util')
@@ -133,8 +143,6 @@ export class SenseLoop extends EventEmitter {
   }
 
   private async infer(rawCapture: any): Promise<SenseContext> {
-    // TODO: Send to agentic-service local model for inference
-    // For now, extract basic info from raw capture
     if (!rawCapture || !Array.isArray(rawCapture)) {
       return {
         activity: 'unknown',
@@ -145,7 +153,7 @@ export class SenseLoop extends EventEmitter {
       }
     }
 
-    // Basic extraction without LLM
+    // Basic extraction without LLM (fast path)
     let activeApp = ''
     const labels: string[] = []
 
@@ -155,6 +163,9 @@ export class SenseLoop extends EventEmitter {
       }
       if (el.label) labels.push(el.label)
     }
+
+    // TODO: Use agentic.think() with local model for richer inference
+    // e.g. ai.think('Summarize what the user is doing', { model: 'local' })
 
     return {
       activity: `Using ${activeApp || 'unknown app'}`,
@@ -169,7 +180,6 @@ export class SenseLoop extends EventEmitter {
   private hasSignificantChange(newContext: SenseContext): boolean {
     if (!this.lastContext) return true
     if (newContext.activeApp !== this.lastContext.activeApp) return true
-    // TODO: More sophisticated change detection using embeddings
     return false
   }
 }

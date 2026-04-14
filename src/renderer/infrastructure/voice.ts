@@ -1,43 +1,43 @@
 /**
  * Voice — Renderer Layer
- * 
- * TTS + STT using agentic-voice
+ *
+ * TTS + STT through agentic unified API (not agentic-voice directly).
+ * All sub-library access goes through the agentic glue layer.
  */
 
-import { createVoice } from 'agentic-voice'
+import { ai } from 'agentic'
 
-let voice: any = null
+let initialized = false
 
 export function initVoice(config: any) {
   if (!config?.voice) return
-  
-  voice = createVoice({
+
+  ai.configure({
     tts: config.voice.tts?.apiKey ? {
-      baseUrl: config.voice.tts.provider === 'elevenlabs' 
-        ? 'https://api.elevenlabs.io/v1'
-        : 'https://api.openai.com/v1',
+      provider: config.voice.tts.provider || 'elevenlabs',
       apiKey: config.voice.tts.apiKey,
-      voice: config.voice.tts.voice || 'alloy'
+      voice: config.voice.tts.voice || 'alloy',
     } : undefined,
-    stt: config.voice.stt || { mode: 'browser' }
+    stt: config.voice.stt || { mode: 'browser' },
   })
+  initialized = true
 }
 
 export async function speak(text: string) {
-  if (!voice) return
-  await voice.speak(text)
+  if (!initialized) return
+  await ai.speak(text)
 }
 
 export function stopSpeaking() {
-  if (!voice) return
-  voice.stop()
+  if (!initialized) return
+  ai.stopSpeaking?.()
 }
 
 export async function listen(): Promise<string> {
-  if (!voice) throw new Error('Voice not initialized')
-  return await voice.listen()
+  if (!initialized) throw new Error('Voice not initialized')
+  return await ai.listen()
 }
 
 export function isVoiceEnabled() {
-  return voice !== null
+  return initialized
 }
