@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "agentic-claw": "file:../agentic/packages/claw",
+    "agentic": "file:../agentic/packages/agentic",
     "agentic-core": "file:../agentic/packages/core",
     "agentic-memory": "file:../agentic/packages/memory",
     "agentic-voice": "file:../agentic/packages/voice",

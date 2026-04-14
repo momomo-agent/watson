@@ -1,23 +1,24 @@
 /**
  * Claw Bridge — Infrastructure Layer
  *
- * Wraps agentic-core's agenticAsk to provide Watson's ChatSession with a
- * LLMStreamFn that handles the complete tool loop internally.
+ * Wraps the Agentic class (from the `agentic` umbrella package) to provide
+ * Watson's ChatSession with a LLMStreamFn that handles the complete tool loop.
  *
- * Watson's tools (file_read, shell_exec, etc.) are registered as custom tools
- * in agentic-core's tool registry, so agenticAsk handles:
- * - Token-level streaming
- * - Tool loop (multi-round)
+ * Watson only imports `agentic` — never touches agentic-core/claw/memory directly.
+ *
+ * The Agentic instance handles:
+ * - Token-level streaming (ai.stream())
+ * - Tool loop (multi-round, via agenticAsk internally)
  * - Loop detection
  * - Provider failover
- * - Eager tool execution (tools start during LLM streaming)
+ * - Eager tool execution
  *
- * ChatSession no longer needs its own tool loop — the stream yields all events
- * including tool_use/tool_result/tool_error as they happen.
+ * Watson's tools (file_read, shell_exec, etc.) are registered via ai.tools,
+ * which delegates to agentic-core's toolRegistry.
  */
 
-// @ts-ignore — JS modules without type declarations
-import { agenticAsk, toolRegistry } from 'agentic-core'
+// @ts-ignore — JS module without type declarations
+import { Agentic } from 'agentic'
 import type { StreamChunk, LLMStreamFn } from '../domain/chat-session'
 import { ToolRunner } from './tool-runner'
 import { BUILTIN_TOOLS } from './tools'
@@ -28,15 +29,14 @@ import type { AgentConfig } from './agent-manager'
 import type { AgentManager } from './agent-manager'
 
 /**
- * Register Watson's built-in tools into agentic-core's tool registry.
- * This lets agenticAsk's tool loop call them directly.
+ * Register Watson's built-in tools into the Agentic instance's tool registry.
  */
-function registerWatsonTools(workspacePath: string) {
-  // Clear previous registrations (in case of workspace switch)
-  toolRegistry.clear()
+function registerWatsonTools(ai: any, workspacePath: string) {
+  const registry = ai.tools
+  registry.clear()
 
   for (const tool of BUILTIN_TOOLS) {
-    toolRegistry.register(tool.name, {
+    registry.register(tool.name, {
       description: tool.description,
       parameters: tool.input_schema,
       execute: async (input: any) => {
@@ -57,13 +57,14 @@ function registerWatsonTools(workspacePath: string) {
 /**
  * Register MCP tools dynamically discovered at runtime.
  */
-function registerMcpTools(mcpManager: McpManager | null, workspacePath: string) {
+function registerMcpTools(ai: any, mcpManager: McpManager | null, workspacePath: string) {
   if (!mcpManager) return
-  for (const tool of mcpManager.listTools()) {
-    // Skip if already registered
-    if (toolRegistry.get(tool.name)) continue
+  const registry = ai.tools
 
-    toolRegistry.register(tool.name, {
+  for (const tool of mcpManager.listTools()) {
+    if (registry.get(tool.name)) continue
+
+    registry.register(tool.name, {
       description: tool.description,
       parameters: tool.input_schema,
       execute: async (input: any) => {
@@ -82,10 +83,10 @@ function registerMcpTools(mcpManager: McpManager | null, workspacePath: string) 
 }
 
 /**
- * Create a LLMStreamFn powered by agenticAsk.
+ * Create a LLMStreamFn powered by Agentic.stream().
  *
- * This replaces both EnhancedLLMClient AND ChatSession's tool loop.
- * The returned generator yields StreamChunk events that ChatSession understands:
+ * This replaces EnhancedLLMClient + ChatSession's tool loop.
+ * The returned generator yields StreamChunk events:
  * - { type: 'text', text } — token-level text deltas
  * - { type: 'tool_use', tool: { id, name, input } } — tool call started
  * - { type: 'tool_result', tool: { id, name, output } } — tool call completed
@@ -114,19 +115,23 @@ export function createClawLLMStream(
     }
 
     // Merge agent config with workspace config
-    const provider = agentConfig?.provider || config.provider
-    const apiKey = agentConfig?.apiKey || config.apiKey
+    const provider = agentConfig?.provider || config.provider || 'anthropic'
+    const apiKey = agentConfig?.apiKey || config.apiKey || ''
     const baseUrl = agentConfig?.baseUrl || config.baseUrl
     const model = agentConfig?.model || config.model
 
     console.log('[claw-bridge] model:', model, 'provider:', provider)
 
-    // Register tools (builtin + MCP)
-    registerWatsonTools(workspacePath)
-    registerMcpTools(mcpManager, workspacePath)
+    // Create Agentic instance with resolved config
+    const ai = new Agentic({ provider, apiKey, baseUrl, model })
 
-    // Get all registered tools for agenticAsk
-    const tools = toolRegistry.list().map((t: any) => ({
+    // Register tools (builtin + MCP)
+    registerWatsonTools(ai, workspacePath)
+    registerMcpTools(ai, mcpManager, workspacePath)
+
+    // Get all registered tools
+    const registry = ai.tools
+    const tools = registry.list().map((t: any) => ({
       name: t.name,
       description: t.description,
       parameters: t.parameters,
@@ -170,20 +175,15 @@ export function createClawLLMStream(
           baseUrl: p.baseUrl || baseUrl,
           model: p.model || model,
         }))
-      : [{ provider, apiKey, baseUrl, model }]
+      : undefined
 
-    // Run agenticAsk — it handles the full tool loop
-    const gen = agenticAsk(prompt, {
-      provider,
-      apiKey,
-      baseUrl,
-      model,
-      providers,
+    // Stream via Agentic — handles the full tool loop
+    const gen = ai.stream(prompt, {
       tools: filteredTools,
       history: history.length ? history : undefined,
-      stream: true,
       system: systemPrompt,
       signal,
+      providers,
     })
 
     for await (const event of gen) {
@@ -214,7 +214,6 @@ export function createClawLLMStream(
           break
 
         case 'warning':
-          // Loop detection warnings — surface as text
           yield { type: 'text', text: `\n⚠️ ${event.message}\n` }
           break
 
@@ -224,10 +223,6 @@ export function createClawLLMStream(
 
         case 'error':
           yield { type: 'error', error: event.error }
-          break
-
-        case 'status':
-          // Internal status (round N/M) — could surface to UI later
           break
       }
     }
