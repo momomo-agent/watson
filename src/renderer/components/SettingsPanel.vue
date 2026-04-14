@@ -1,3 +1,4 @@
+import { backend } from '../infrastructure/backend'
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useTheme } from '../composables/useTheme'
@@ -69,7 +70,7 @@ const newCronId = ref('')
 const newCronSchedule = ref('')
 
 onMounted(async () => {
-  const loaded = await window.api.loadConfig()
+  const loaded = await backend.invoke("settings:load")
   if (loaded) {
     config.value = loaded
     // Ensure providers array exists
@@ -78,14 +79,14 @@ onMounted(async () => {
     }
   }
   
-  const status = await window.api.heartbeatStatus()
+  const status = await backend.invoke("scheduler:heartbeat:status")
   heartbeatRunning.value = status.running
   
-  cronJobs.value = await window.api.cronList()
+  cronJobs.value = await backend.invoke("scheduler:cron:list")
 })
 
 const saveConfig = async () => {
-  await window.api.saveConfig(config.value)
+  await backend.invoke("settings:save", config.value)
   emit('close')
 }
 
@@ -163,25 +164,25 @@ const toggleMcpServer = (name: string) => {
 
 const toggleHeartbeat = async () => {
   if (heartbeatRunning.value) {
-    await window.api.heartbeatStop()
+    await backend.invoke("scheduler:heartbeat:stop")
     heartbeatRunning.value = false
   } else {
-    await window.api.heartbeatStart()
+    await backend.invoke("scheduler:heartbeat:start")
     heartbeatRunning.value = true
   }
 }
 
 const addCronJob = async () => {
   if (!newCronId.value || !newCronSchedule.value) return
-  await window.api.cronAdd(newCronId.value, newCronSchedule.value)
-  cronJobs.value = await window.api.cronList()
+  await backend.invoke("scheduler:cron:add", { id: newCronId.value, schedule: newCronSchedule.value })
+  cronJobs.value = await backend.invoke("scheduler:cron:list")
   newCronId.value = ''
   newCronSchedule.value = ''
 }
 
 const removeCronJob = async (id: string) => {
-  await window.api.cronRemove(id)
-  cronJobs.value = await window.api.cronList()
+  await backend.invoke("scheduler:cron:remove", { id })
+  cronJobs.value = await backend.invoke("scheduler:cron:list")
 }
 </script>
 

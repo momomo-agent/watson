@@ -1,11 +1,11 @@
 /**
  * useSession — Session management composable
  *
- * MOMO-51: Backed by SQLite via IPC (sessions:*) instead of localStorage.
- * Sessions and messages survive app restart.
+ * Uses backend adapter for transport isolation.
  */
 
 import { ref, computed } from 'vue'
+import { backend } from '../infrastructure/backend'
 
 export interface Session {
   id: string
@@ -23,14 +23,13 @@ const sessions = ref<Session[]>([])
 const currentSessionId = ref<string | null>(null)
 
 export function useSession() {
-  const currentSession = computed(() => 
+  const currentSession = computed(() =>
     sessions.value.find(s => s.id === currentSessionId.value) || null
   )
 
   const loadSessions = async () => {
     try {
-      // Load from SQLite via IPC
-      const stored = await window.api.invoke('sessions:list')
+      const stored = await backend.invoke('sessions:list')
       if (stored && Array.isArray(stored)) {
         sessions.value = stored.map((s: any) => ({
           id: s.id,
@@ -48,33 +47,7 @@ export function useSession() {
         }
       }
     } catch (err) {
-      console.error('[useSession] Failed to load sessions from SQLite:', err)
-      // Fallback: try localStorage for migration
-      const localStored = localStorage.getItem('watson:sessions')
-      if (localStored) {
-        try {
-          const localSessions = JSON.parse(localStored) as Session[]
-          sessions.value = localSessions
-          if (sessions.value.length > 0 && !currentSessionId.value) {
-            currentSessionId.value = sessions.value[0].id
-          }
-          // Migrate localStorage sessions to SQLite
-          for (const s of localSessions) {
-            try {
-              await window.api.invoke('sessions:create', {
-                id: s.id,
-                title: s.title,
-                participants: [s.workspacePath]
-              })
-            } catch { /* session may already exist */ }
-          }
-          // Clear localStorage after migration
-          localStorage.removeItem('watson:sessions')
-          console.log('[useSession] Migrated', localSessions.length, 'sessions from localStorage to SQLite')
-        } catch {
-          // ignore parse errors
-        }
-      }
+      console.error('[useSession] Failed to load sessions:', err)
     }
   }
 
@@ -83,23 +56,12 @@ export function useSession() {
     const title = 'New Chat'
     const now = Date.now()
 
-    const session: Session = {
-      id,
-      workspacePath,
-      title,
-      createdAt: now,
-      updatedAt: now
-    }
+    const session: Session = { id, workspacePath, title, createdAt: now, updatedAt: now }
 
-    // Persist to SQLite
     try {
-      await window.api.invoke('sessions:create', {
-        id,
-        title,
-        participants: [workspacePath]
-      })
+      await backend.invoke('sessions:create', { id, title, participants: [workspacePath] })
     } catch (err) {
-      console.error('[useSession] Failed to create session in SQLite:', err)
+      console.error('[useSession] Failed to create session:', err)
     }
 
     sessions.value.unshift(session)
@@ -118,11 +80,10 @@ export function useSession() {
       if (currentSessionId.value === id) {
         currentSessionId.value = sessions.value[0]?.id || null
       }
-      // Delete from SQLite
       try {
-        await window.api.invoke('sessions:delete', { sessionId: id })
+        await backend.invoke('sessions:delete', { sessionId: id })
       } catch (err) {
-        console.error('[useSession] Failed to delete session from SQLite:', err)
+        console.error('[useSession] Failed to delete session:', err)
       }
     }
   }
@@ -131,11 +92,10 @@ export function useSession() {
     const session = sessions.value.find(s => s.id === id)
     if (session) {
       session.title = title
-      // Persist to SQLite
       try {
-        await window.api.invoke('sessions:rename', { sessionId: id, title })
+        await backend.invoke('sessions:rename', { sessionId: id, title })
       } catch (err) {
-        console.error('[useSession] Failed to rename session in SQLite:', err)
+        console.error('[useSession] Failed to rename session:', err)
       }
     }
   }
@@ -145,30 +105,22 @@ export function useSession() {
     if (session) {
       session.lastMessage = message
       session.updatedAt = Date.now()
-      // Move to top
       const idx = sessions.value.indexOf(session)
       if (idx > 0) {
         sessions.value.splice(idx, 1)
         sessions.value.unshift(session)
       }
-      // Touch session in SQLite (update timestamp)
       try {
-        await window.api.invoke('sessions:touch', { sessionId: id })
+        await backend.invoke('sessions:touch', { sessionId: id })
       } catch (err) {
-        console.error('[useSession] Failed to touch session in SQLite:', err)
+        console.error('[useSession] Failed to touch session:', err)
       }
     }
   }
 
   return {
-    sessions,
-    currentSession,
-    currentSessionId,
-    loadSessions,
-    createSession,
-    switchSession,
-    deleteSession,
-    renameSession,
-    updateSessionMessage
+    sessions, currentSession, currentSessionId,
+    loadSessions, createSession, switchSession,
+    deleteSession, renameSession, updateSessionMessage
   }
 }

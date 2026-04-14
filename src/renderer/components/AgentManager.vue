@@ -121,6 +121,7 @@
 </template>
 
 <script setup lang="ts">
+import { backend } from '../infrastructure/backend'
 import { ref, onMounted } from 'vue'
 
 interface Agent {
@@ -149,7 +150,7 @@ const defaultAgentId = ref<string>('default')
 const editingAgent = ref<Agent | null>(null)
 
 async function loadAgents() {
-  const result = await window.api.ipcRenderer.invoke('agent:list', {
+  const result = await backend.invoke('agent:list', {
     workspacePath: props.workspacePath
   })
   if (result.success) {
@@ -182,7 +183,7 @@ async function saveAgent() {
   try {
     if (editingAgent.value.id) {
       // Update existing
-      await window.api.ipcRenderer.invoke('agent:update', {
+      await backend.invoke('agent:update', {
         workspacePath: props.workspacePath,
         agentId: editingAgent.value.id,
         updates: editingAgent.value
@@ -193,7 +194,7 @@ async function saveAgent() {
         ...editingAgent.value,
         id: editingAgent.value.name.toLowerCase().replace(/\s+/g, '-')
       }
-      await window.api.ipcRenderer.invoke('agent:add', {
+      await backend.invoke('agent:add', {
         workspacePath: props.workspacePath,
         agent: newAgent
       })
@@ -210,7 +211,7 @@ async function removeAgent(agentId: string) {
   if (!confirm('Are you sure you want to delete this agent?')) return
 
   try {
-    await window.api.ipcRenderer.invoke('agent:remove', {
+    await backend.invoke('agent:remove', {
       workspacePath: props.workspacePath,
       agentId
     })
@@ -223,7 +224,7 @@ async function removeAgent(agentId: string) {
 
 async function setDefault(agentId: string) {
   try {
-    await window.api.ipcRenderer.invoke('agent:setDefault', {
+    await backend.invoke('agent:setDefault', {
       workspacePath: props.workspacePath,
       agentId
     })

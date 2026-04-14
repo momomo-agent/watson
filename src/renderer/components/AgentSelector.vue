@@ -45,6 +45,7 @@
 </template>
 
 <script setup lang="ts">
+import { backend } from '../infrastructure/backend'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 interface Agent {
@@ -73,7 +74,7 @@ const currentAgent = computed(() => {
 })
 
 async function loadAgents() {
-  const result = await window.api.ipcRenderer.invoke('agent:list', {
+  const result = await backend.invoke('agent:list', {
     workspacePath: props.workspacePath
   })
   if (result.success) {

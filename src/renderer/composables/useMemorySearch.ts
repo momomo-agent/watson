@@ -1,5 +1,5 @@
-// useMemorySearch.ts — Memory search composable
 import { ref } from 'vue'
+import { backend } from '../infrastructure/backend'
 
 interface SearchResult {
   path: string
@@ -20,7 +20,7 @@ export function useMemorySearch() {
     isIndexing.value = true
     error.value = null
     try {
-      const result = await window.api.invoke('memory:buildIndex', workspaceDir)
+      const result = await backend.invoke('memory:buildIndex', { workspaceDir })
       if (!result.success) throw new Error(result.error)
       return result.count
     } catch (e) {
@@ -32,15 +32,11 @@ export function useMemorySearch() {
   }
 
   async function search(workspaceDir: string, query: string, maxResults = 10) {
-    if (!query.trim()) {
-      results.value = []
-      return
-    }
-    
+    if (!query.trim()) { results.value = []; return }
     isSearching.value = true
     error.value = null
     try {
-      const result = await window.api.invoke('memory:search', workspaceDir, query, maxResults)
+      const result = await backend.invoke('memory:search', { workspaceDir, query, maxResults })
       if (!result.success) throw new Error(result.error)
       results.value = result.results
       return result.results
@@ -53,12 +49,5 @@ export function useMemorySearch() {
     }
   }
 
-  return {
-    isIndexing,
-    isSearching,
-    results,
-    error,
-    buildIndex,
-    search
-  }
+  return { isIndexing, isSearching, results, error, buildIndex, search }
 }

@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { backend } from '../infrastructure/backend'
 
 export interface Workspace {
   id: string
@@ -12,43 +13,38 @@ const currentWorkspace = ref<Workspace | null>(null)
 const workspaces = ref<Workspace[]>([])
 
 const loadWorkspaces = async () => {
-  workspaces.value = await window.api.invoke('workspace:list')
-  currentWorkspace.value = await window.api.invoke('workspace:current')
-  
-  // Load config and expose to window for voice init
+  workspaces.value = await backend.invoke('workspace:list')
+  currentWorkspace.value = await backend.invoke('workspace:current')
+
+  // Load config for voice init etc.
   try {
-    const config = await window.api.loadConfig()
+    const config = await backend.invoke('settings:load')
     ;(window as any).__watsonConfig = config
   } catch (e) {
     console.error('[useWorkspace] config load failed:', e)
   }
 }
 
-// 立即初始化，不依赖 onMounted
 loadWorkspaces().catch(e => console.error('[useWorkspace] init failed:', e))
 
 export function useWorkspace() {
   const switchWorkspace = async (id: string) => {
-    currentWorkspace.value = await window.api.invoke('workspace:switch', id)
+    currentWorkspace.value = await backend.invoke('workspace:switch', id)
   }
 
   const createWorkspace = async (name: string, path: string) => {
-    const workspace = await window.api.invoke('workspace:create', name, path)
+    const workspace = await backend.invoke('workspace:create', { name, path })
     await loadWorkspaces()
     return workspace
   }
 
   const deleteWorkspace = async (id: string) => {
-    await window.api.invoke('workspace:delete', id)
+    await backend.invoke('workspace:delete', id)
     await loadWorkspaces()
   }
 
   return {
-    currentWorkspace,
-    workspaces,
-    switchWorkspace,
-    createWorkspace,
-    deleteWorkspace,
-    loadWorkspaces
+    currentWorkspace, workspaces,
+    switchWorkspace, createWorkspace, deleteWorkspace, loadWorkspaces
   }
 }
