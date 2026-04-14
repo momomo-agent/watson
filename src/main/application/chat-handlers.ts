@@ -45,7 +45,7 @@ async function handleCodingAgentMessage(
   session.emit('update')
 
   // Create assistant message placeholder
-  const assistantMsg = {
+  const assistantMsg: Record<string, any> = {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2),
     role: 'assistant',
     content: '',

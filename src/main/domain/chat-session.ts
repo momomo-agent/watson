@@ -298,7 +298,7 @@ export class ChatSession extends EventEmitter {
       flushToolGroup()
       if (controller.signal.aborted) {
         this.finishMessage(message, 'cancelled')
-      } else if (message.status !== 'complete' && message.status !== 'error') {
+      } else if ((message.status as string) !== 'complete' && (message.status as string) !== 'error') {
         this.finishMessage(message, 'complete')
       }
 
