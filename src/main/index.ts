@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 
 app.commandLine.appendSwitch('remote-debugging-port', '9229')
 
@@ -28,6 +28,7 @@ import { SkillManager } from './domain/skill-manager'
 import { configureAgentic } from './infrastructure/claw-bridge'
 import { initRegistry, getCurrentWorkspace } from './infrastructure/workspace-registry'
 import { closeAll as closeAllDbs } from './infrastructure/workspace-db'
+import { sessionBus } from './infrastructure/session-bus'
 
 let mainWindow: BrowserWindow | null = null
 let trayManager: TrayManager | null = null
@@ -53,6 +54,9 @@ function createWindow() {
 
   trayManager = new TrayManager(mainWindow)
   trayManager.initialize()
+
+  // Bind session bus to window for event push + visibility tracking
+  sessionBus.bindWindow(mainWindow)
 
   // macOS: hide on close instead of quit
   mainWindow.on('close', (event) => {
@@ -83,6 +87,12 @@ function createWindow() {
   registerFileWatcherHandlers(mainWindow)
   
   ToolRunner.setMcpManager(mcpManager)
+
+  // Session bus: renderer reconnect + replay
+  ipcMain.handle('session-bus:replay', (_event, { sinceSeq, sessionId }) => {
+    return sessionBus.getEventsSince(sinceSeq || 0, sessionId)
+  })
+  ipcMain.handle('session-bus:seq', () => sessionBus.getSeq())
   
   // Boot current workspace
   const current = getCurrentWorkspace()
