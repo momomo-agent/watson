@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, computed, shallowRef, watchEffect } from 'vue'
+/**
+ * ChatView — Main conversation view
+ *
+ * Composes: MessageList + ChatInput + StatusIndicator
+ * Manages session lifecycle and message routing.
+ */
+import { ref, watch, computed, shallowRef, watchEffect } from 'vue'
 import { useChatSession } from '../composables/useChatSession'
 import { useSession } from '../composables/useSession'
 import { useUnread } from '../composables/useUnread'
 import { useWorkspace } from '../composables/useWorkspace'
 import { speak, isVoiceEnabled } from '../infrastructure/voice'
-import MessageCard from './MessageCard.vue'
+import MessageList from './chat/MessageList.vue'
 import ChatInput from './ChatInput.vue'
 import StatusIndicator from './StatusIndicator.vue'
 
@@ -15,18 +21,15 @@ const { currentWorkspace } = useWorkspace()
 const workspacePath = computed(() => currentWorkspace.value?.path ?? '/tmp')
 const sessionId = computed(() => currentSessionId.value || 'main')
 
-// 响应式地创建 chatSession，sessionId 变化时重新创建
+// Reactive chat session — recreated when sessionId changes
 const chatSession = shallowRef(useChatSession(sessionId.value))
 watchEffect(() => {
   chatSession.value = useChatSession(sessionId.value)
 })
 
-// 暴露给模板用的计算属性
 const messages = computed(() => chatSession.value.messages.value)
 const isLoading = computed(() => chatSession.value.isLoading.value)
 const error = computed(() => chatSession.value.error.value)
-
-const messagesContainer = ref<HTMLElement | null>(null)
 
 const appStatus = computed(() => {
   if (error.value) return 'error'
@@ -35,17 +38,7 @@ const appStatus = computed(() => {
   return 'idle'
 })
 
-watch(sessionId, (newId) => {
-  clearUnread(newId)
-})
-
-// Auto-scroll to bottom when messages update
-watch(messages, async () => {
-  await nextTick()
-  if (messagesContainer.value) {
-    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-  }
-}, { deep: true })
+watch(sessionId, (newId) => clearUnread(newId))
 
 // TTS: speak assistant messages when they complete
 watch(messages, (newMsgs, oldMsgs) => {
@@ -58,7 +51,7 @@ watch(messages, (newMsgs, oldMsgs) => {
   }
 }, { deep: true })
 
-// Update session's last message
+// Update session's last message preview
 watch(messages, (msgs) => {
   if (msgs.length > 0 && sessionId.value) {
     const lastMsg = msgs[msgs.length - 1]
@@ -69,7 +62,7 @@ watch(messages, (msgs) => {
 }, { deep: true })
 
 const handleSend = async (text: string, agentId?: string) => {
-  // Auto-title session with first message content
+  // Auto-title with first message
   if (messages.value.length === 0 && sessionId.value) {
     const title = text.slice(0, 30).trim()
     if (title) renameSession(sessionId.value, title)
@@ -77,36 +70,27 @@ const handleSend = async (text: string, agentId?: string) => {
   await chatSession.value.sendMessage(text, agentId)
 }
 
-const handleCancel = (msgId: string) => {
-  chatSession.value.cancel(msgId)
-}
-
-const handleRetry = (msgId: string) => {
-  chatSession.value.retry(msgId)
-}
+const handleCancel = (msgId: string) => chatSession.value.cancel(msgId)
+const handleRetry = (msgId: string) => chatSession.value.retry(msgId)
 </script>
 
 <template>
   <div class="chat-view">
-    <div class="messages" ref="messagesContainer">
-      <div v-if="messages.length === 0" class="empty-state">
-        <div class="empty-logo">W</div>
-        <p>Watson</p>
-        <span>How can I help you today?</span>
-      </div>
+    <MessageList
+      :messages="messages"
+      @cancel="handleCancel"
+      @retry="handleRetry"
+    >
+      <template #empty>
+        <div class="empty-state">
+          <div class="empty-logo">W</div>
+          <p>Watson</p>
+          <span>How can I help you today?</span>
+        </div>
+      </template>
+    </MessageList>
 
-      <MessageCard
-        v-for="msg in messages"
-        :key="msg.id"
-        :message="msg"
-        @cancel="handleCancel(msg.id)"
-        @retry="handleRetry(msg.id)"
-      />
-    </div>
-
-    <div v-if="error" class="global-error">
-      {{ error }}
-    </div>
+    <div v-if="error" class="global-error">{{ error }}</div>
 
     <ChatInput
       :disabled="isLoading"
@@ -125,32 +109,6 @@ const handleRetry = (msgId: string) => {
   height: 100vh;
   flex: 1;
   background: var(--bg-primary);
-}
-
-.messages {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 1.5rem 0;
-  scroll-behavior: smooth;
-}
-
-/* Custom scrollbar */
-.messages::-webkit-scrollbar {
-  width: 6px;
-}
-
-.messages::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.messages::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 3px;
-}
-
-.messages::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
 }
 
 .empty-state {
