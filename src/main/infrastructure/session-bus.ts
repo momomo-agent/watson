@@ -63,9 +63,9 @@ export class SessionBus {
     this.events.push(event)
     this.trimBuffer()
 
-    // Push to renderer if window is alive and visible
+    // Push to renderer — use the original channel name so existing listeners work
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('session-bus:event', event)
+      this.mainWindow.webContents.send(type, data)
     }
 
     // Notify subscribers (internal main-process listeners)

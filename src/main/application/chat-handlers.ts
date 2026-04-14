@@ -11,6 +11,7 @@ import { captureCurrentWindow } from '../infrastructure/screen-capture'
 import { McpManager } from '../infrastructure/mcp-manager'
 import { BUILTIN_TOOLS } from '../infrastructure/tools'
 import { incrementUnread } from './tray-handlers'
+import { sessionBus } from '../infrastructure/session-bus'
 
 const workspaceManager = new WorkspaceManager()
 
@@ -69,13 +70,11 @@ async function handleCodingAgentMessage(
       onToken: (token: string) => {
         assistantMsg.content += token
         session.emit('persist', assistantMsg)
-        if (!mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('chat:update', {
-            sessionId,
-            messages: JSON.parse(JSON.stringify(session.messages)),
-            statusText: '正在回复...',
-          })
-        }
+        sessionBus.emit(sessionId, 'chat:update', {
+          sessionId,
+          messages: JSON.parse(JSON.stringify(session.messages)),
+          statusText: '正在回复...',
+        })
       }
     })
 
@@ -83,6 +82,9 @@ async function handleCodingAgentMessage(
     assistantMsg.status = 'complete'
     session.emit('persist', assistantMsg)
     session.emit('update')
+
+    // Notify if window hidden
+    sessionBus.notifyIfHidden('Watson — Coding Agent', assistantMsg.content?.slice(0, 80) || '任务完成')
 
     return { success: true }
   } catch (error: any) {
@@ -112,35 +114,37 @@ function ensureSessionListener(session: any, sessionId: string, mainWindow: Brow
   }
 
   session.on('update', (event?: any) => {
-    if (!mainWindow.isDestroyed()) {
-      const messages = session.messages || []
+    const messages = session.messages || []
 
-      // MOMO-56: Detect newly completed assistant messages → increment unread
-      if (sessionId !== activeSessionId) {
-        for (const msg of messages) {
-          if (
-            msg.role === 'assistant' &&
-            msg.status === 'complete' &&
-            !countedMessageIds.has(msg.id)
-          ) {
-            countedMessageIds.add(msg.id)
-            incrementUnread(sessionId, mainWindow)
-          }
-        }
-      } else {
-        for (const msg of messages) {
-          if (msg.role === 'assistant' && msg.status === 'complete') {
-            countedMessageIds.add(msg.id)
-          }
+    // MOMO-56: Detect newly completed assistant messages → increment unread
+    if (sessionId !== activeSessionId) {
+      for (const msg of messages) {
+        if (
+          msg.role === 'assistant' &&
+          msg.status === 'complete' &&
+          !countedMessageIds.has(msg.id)
+        ) {
+          countedMessageIds.add(msg.id)
+          incrementUnread(sessionId, mainWindow)
+
+          // System notification when window is hidden
+          const preview = msg.content?.slice(0, 80) || '回复完成'
+          sessionBus.notifyIfHidden('Watson', preview)
         }
       }
-
-      mainWindow.webContents.send('chat:update', {
-        sessionId,
-        messages: JSON.parse(JSON.stringify(messages)),
-        statusText: event?.statusText || null,
-      })
+    } else {
+      for (const msg of messages) {
+        if (msg.role === 'assistant' && msg.status === 'complete') {
+          countedMessageIds.add(msg.id)
+        }
+      }
     }
+
+    sessionBus.emit(sessionId, 'chat:update', {
+      sessionId,
+      messages: JSON.parse(JSON.stringify(messages)),
+      statusText: event?.statusText || null,
+    })
   })
   attachedListeners.add(key)
 }
