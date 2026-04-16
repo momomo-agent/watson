@@ -12,8 +12,10 @@ import { McpManager } from '../infrastructure/mcp-manager'
 import { BUILTIN_TOOLS } from '../infrastructure/tools'
 import { incrementUnread } from './tray-handlers'
 import { sessionBus } from '../infrastructure/session-bus'
+import type { TrayManager } from './tray-manager'
 
 const workspaceManager = new WorkspaceManager()
+let _trayManager: TrayManager | null = null
 
 /** Expose workspace manager for SenseLoop wiring */
 export function getWorkspaceManager(): WorkspaceManager {
@@ -145,6 +147,14 @@ function ensureSessionListener(session: any, sessionId: string, mainWindow: Brow
       }
     }
 
+    // Update tray status based on message states
+    if (_trayManager) {
+      const hasActive = messages.some(
+        (m: any) => m.status === 'streaming' || m.status === 'pending' || m.status === 'tool_calling'
+      )
+      _trayManager.updateStatus(hasActive ? 'Thinking...' : 'Watson Ready')
+    }
+
     sessionBus.emit(sessionId, 'chat:update', {
       sessionId,
       messages: JSON.parse(JSON.stringify(messages)),
@@ -154,7 +164,8 @@ function ensureSessionListener(session: any, sessionId: string, mainWindow: Brow
   attachedListeners.add(key)
 }
 
-export function registerChatHandlers(mainWindow: BrowserWindow, mcpManager: McpManager) {
+export function registerChatHandlers(mainWindow: BrowserWindow, mcpManager: McpManager, trayManager?: TrayManager | null) {
+  _trayManager = trayManager || null
   // 设置 MCP 管理器到 workspace manager
   workspaceManager.setMcpManager(mcpManager)
 

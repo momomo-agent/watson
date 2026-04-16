@@ -10,7 +10,7 @@
  * - Shift+Enter for newline, Enter to send
  * - Attachment limits: 20 files, 5 images
  */
-import { ref, nextTick, computed, onBeforeUnmount } from 'vue'
+import { ref, nextTick, computed, onMounted, onBeforeUnmount } from 'vue'
 import { backend } from '../infrastructure/backend'
 import AgentSelector from './AgentSelector.vue'
 import AgentManager from './AgentManager.vue'
@@ -158,7 +158,21 @@ function revokeAllPreviews() {
   }
 }
 
-onBeforeUnmount(() => revokeAllPreviews())
+// Global shortcut: focus input when main process sends focus-input
+let cleanupFocusListener: (() => void) | null = null
+onMounted(() => {
+  const api = (window as any).api
+  if (api?.onFocusInput) {
+    cleanupFocusListener = api.onFocusInput(() => {
+      textarea.value?.focus()
+    })
+  }
+})
+
+onBeforeUnmount(() => {
+  revokeAllPreviews()
+  cleanupFocusListener?.()
+})
 
 // ── Drag & Drop (T4: folder support via webkitGetAsEntry) ──
 

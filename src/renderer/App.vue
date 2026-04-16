@@ -2,6 +2,7 @@
 import Sidebar from './components/Sidebar.vue'
 import ChatView from './components/ChatView.vue'
 import SenseIndicator from './components/SenseIndicator.vue'
+import ProactiveToast from './components/ProactiveToast.vue'
 import { useTheme } from './composables/useTheme'
 import { initVoice } from './infrastructure/voice'
 
@@ -19,6 +20,7 @@ if (config) initVoice(config)
     <div class="sense-wrapper">
       <SenseIndicator />
     </div>
+    <ProactiveToast />
   </div>
 </template>
 

@@ -43,6 +43,12 @@ contextBridge.exposeInMainWorld('api', {
     }
   },
 
+  onFocusInput: (callback: () => void) => {
+    const subscription = () => callback()
+    ipcRenderer.on('focus-input', subscription)
+    return () => ipcRenderer.removeListener('focus-input', subscription)
+  },
+
   loadConfig: () => ipcRenderer.invoke('settings:load'),
   saveConfig: (config: any) => ipcRenderer.invoke('settings:save', config),
   

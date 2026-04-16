@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, globalShortcut } from 'electron'
 
 app.commandLine.appendSwitch('remote-debugging-port', '9223')
 
@@ -64,6 +64,21 @@ function createWindow() {
   // Bind session bus to window for event push + visibility tracking
   sessionBus.bindWindow(mainWindow)
 
+  // Global shortcut: Cmd+Shift+Space to toggle window
+  try {
+    globalShortcut.register('CommandOrControl+Shift+Space', () => {
+      if (mainWindow?.isVisible() && mainWindow.isFocused()) {
+        mainWindow.hide()
+      } else {
+        mainWindow?.show()
+        mainWindow?.focus()
+        mainWindow?.webContents.send('focus-input')
+      }
+    })
+  } catch (err) {
+    console.warn('Failed to register global shortcut:', err)
+  }
+
   // macOS: hide on close instead of quit
   mainWindow.on('close', (event) => {
     if (process.platform === 'darwin' && !(app as any).isQuitting) {
@@ -82,7 +97,7 @@ function createWindow() {
   }
   
   // Register IPC handlers
-  registerChatHandlers(mainWindow, mcpManager)
+  registerChatHandlers(mainWindow, mcpManager, trayManager)
   registerWorkspaceHandlers(mainWindow)
   registerPersistenceHandlers(mainWindow)
   registerCodingAgentHandlers(mainWindow)
@@ -240,5 +255,6 @@ app.on('activate', () => {
 })
 
 app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
   trayManager?.destroy()
 })
