@@ -465,9 +465,9 @@ function fileTypeIcon(entry: AttachmentEntry): string {
 textarea {
   flex: 1;
   padding: 6px 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--bg-primary);
+  border: none;
+  border-radius: 6px;
+  background: transparent;
   color: var(--text-primary);
   font-family: inherit;
   font-size: 0.9rem;
@@ -478,10 +478,7 @@ textarea {
   overflow-y: auto;
 }
 
-textarea:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
+textarea:focus { outline: none; }
 
 textarea:disabled { opacity: 0.5; }
 

@@ -204,8 +204,12 @@ Settings
 
 .session-item.active {
   background: var(--bg-primary);
-  border: 1px solid var(--accent-color);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  box-shadow: none;
+}
+
+.session-item.active .session-title {
+  color: var(--accent-color);
 }
 
 .session-body {
@@ -223,7 +227,7 @@ Settings
 .session-title {
   font-weight: 500;
   color: var(--text-primary);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
@@ -270,14 +274,14 @@ Settings
 }
 
 .session-subtitle {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
-  line-height: 1.5;
-  margin-top: 0.125rem;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+  margin-top: 1px;
+  opacity: 0.7;
 }
 
 .session-chevron {

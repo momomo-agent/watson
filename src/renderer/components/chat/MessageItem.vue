@@ -292,6 +292,7 @@ function formatAttSize(bytes: number): string {
 .msg-body {
   flex: 1;
   min-width: 0;
+  max-width: 720px;
 }
 
 .msg-header {

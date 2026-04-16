@@ -126,12 +126,14 @@ defineExpose({ prefillInput })
 
     <div v-if="error" class="global-error">{{ error }}</div>
 
-    <ChatInput
-      ref="chatInputRef"
-      :disabled="isLoading"
-      :workspace-path="workspacePath"
-      @send="handleSend"
-    />
+    <div class="input-wrapper">
+      <ChatInput
+        ref="chatInputRef"
+        :disabled="isLoading"
+        :workspace-path="workspacePath"
+        @send="handleSend"
+      />
+    </div>
 
     <StatusIndicator :status="appStatus" />
   </div>
@@ -168,7 +170,7 @@ defineExpose({ prefillInput })
   align-items: center;
   justify-content: center;
   margin-bottom: 0.5rem;
-  box-shadow: 0 4px 16px rgba(96, 165, 250, 0.25);
+  box-shadow: 0 4px 16px rgba(232, 164, 74, 0.2);
 }
 
 .empty-state p {
@@ -230,5 +232,11 @@ defineExpose({ prefillInput })
   color: #ff6b6b;
   font-size: 0.875rem;
   border-top: 1px solid #ff6b6b33;
+}
+
+.input-wrapper {
+  padding: 8px 16px 12px;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
 }
 </style>

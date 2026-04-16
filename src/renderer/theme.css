@@ -67,8 +67,8 @@
   --accent-color: #e8a44a;
   --accent-hover: #d4903a;
   
-  --msg-user-bg: #2a2218;
-  --msg-user-border: #3d3020;
+  --msg-user-bg: #332b1e;
+  --msg-user-border: #4a3d28;
   --code-bg: #161412;
   
   /* Warm amber shadows for dark mode */
@@ -337,4 +337,37 @@ pre.mermaid {
   text-align: center;
   padding: 1rem;
   background: transparent;
+}
+
+/* ── Markdown prose typography ── */
+.content-block p { margin: 0 0 0.75em; }
+.content-block p:last-child { margin-bottom: 0; }
+.content-block h1, .content-block h2, .content-block h3 {
+  margin: 1.25em 0 0.5em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.content-block h1 { font-size: 1.25rem; }
+.content-block h2 { font-size: 1.1rem; }
+.content-block h3 { font-size: 1rem; }
+.content-block ul, .content-block ol {
+  margin: 0.5em 0 0.75em;
+  padding-left: 1.5em;
+}
+.content-block li { margin: 0.25em 0; }
+.content-block code:not(pre code) {
+  font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
+  font-size: 0.85em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--code-bg);
+  border: 1px solid var(--border-color);
+}
+.content-block blockquote {
+  margin: 0.75em 0;
+  padding: 0.5em 1em;
+  border-left: 3px solid var(--accent-color);
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border-radius: 0 6px 6px 0;
 }
