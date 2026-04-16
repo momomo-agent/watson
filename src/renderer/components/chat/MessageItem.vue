@@ -96,6 +96,12 @@ function formatMs(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`
   return `${(ms / 1000).toFixed(1)}s`
 }
+
+function formatAttSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
+}
 </script>
 
 <template>
@@ -135,13 +141,20 @@ function formatMs(ms: number): string {
 
       <!-- User attachments -->
       <div v-if="isUser && message.attachments?.length" class="msg-attachments">
-        <img
-          v-for="(att, i) in message.attachments"
-          :key="i"
-          :src="att.url"
-          :alt="att.name"
-          class="attachment-img"
-        />
+        <template v-for="(att, i) in message.attachments" :key="i">
+          <img
+            v-if="att.type?.startsWith('image/') && att.url"
+            :src="att.url"
+            :alt="att.name"
+            class="attachment-img"
+          />
+          <div v-else class="attachment-chip">
+            <span class="attachment-chip-icon">{{ att.isDirectory ? '📁' : '📎' }}</span>
+            <span class="attachment-chip-name">{{ att.name }}</span>
+            <span v-if="att.isDirectory && att.fileCount" class="attachment-chip-meta">{{ att.fileCount }} 文件</span>
+            <span v-else-if="att.size" class="attachment-chip-meta">{{ formatAttSize(att.size) }}</span>
+          </div>
+        </template>
       </div>
 
       <!-- Flow segments (assistant) -->
@@ -334,6 +347,21 @@ function formatMs(ms: number): string {
   border-radius: 8px;
   object-fit: contain;
 }
+
+.attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--bg-tertiary, #1a1a2e);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.attachment-chip-icon { font-size: 0.875rem; }
+.attachment-chip-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-chip-meta { opacity: 0.6; }
 
 /* Flow */
 .msg-flow {

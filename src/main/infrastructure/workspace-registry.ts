@@ -62,7 +62,7 @@ function writeWsConfig(wsPath: string, config: Record<string, any>): void {
   writeFileSync(wsConfigPath(wsPath), JSON.stringify(config, null, 2) + '\n')
 }
 
-export function loadIdentity(wsPath: string): WorkspaceIdentity {
+function loadIdentity(wsPath: string): WorkspaceIdentity {
   const config = readWsConfig(wsPath)
   if (!config.id) {
     config.id = randomUUID()
@@ -76,7 +76,7 @@ export function loadIdentity(wsPath: string): WorkspaceIdentity {
   }
 }
 
-export function saveIdentity(wsPath: string, updates: Partial<WorkspaceIdentity>): WorkspaceIdentity {
+function saveIdentity(wsPath: string, updates: Partial<WorkspaceIdentity>): WorkspaceIdentity {
   const config = readWsConfig(wsPath)
   if (updates.name !== undefined) config.name = updates.name
   if (updates.avatar !== undefined) config.avatar = updates.avatar
@@ -153,7 +153,7 @@ export function getWorkspace(id: string): WorkspaceRecord | undefined {
   return _workspaces.find(w => w.id === id)
 }
 
-export function getWorkspaceByPath(wsPath: string): WorkspaceRecord | undefined {
+function getWorkspaceByPath(wsPath: string): WorkspaceRecord | undefined {
   const abs = resolve(wsPath)
   return _workspaces.find(w => w.path === abs)
 }
@@ -218,7 +218,7 @@ export function updateIdentity(id: string, updates: Partial<WorkspaceIdentity>):
   return ws
 }
 
-export function refreshAll(): void {
+function refreshAll(): void {
   _workspaces = _workspaces
     .filter(w => w.type === 'coding-agent' || existsSync(w.path))
     .map(w => {

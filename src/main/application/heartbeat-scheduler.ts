@@ -1,11 +1,13 @@
 import { existsSync } from 'fs'
+import { EventEmitter } from 'events'
 
-export class HeartbeatScheduler {
+export class HeartbeatScheduler extends EventEmitter {
   private wsPath: string
   private interval: NodeJS.Timeout | null = null
   private isRunning = false
 
   constructor(wsPath: string) {
+    super()
     this.wsPath = wsPath
   }
 
@@ -34,6 +36,7 @@ export class HeartbeatScheduler {
       return
     }
     console.log(`[Heartbeat] Tick at ${new Date().toISOString()} for ${this.wsPath}`)
+    this.emit('tick')
   }
 
   private getInterval(): number {

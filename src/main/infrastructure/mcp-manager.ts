@@ -65,7 +65,10 @@ export class McpManager {
   }
 
   private async connectServer(name: string, cfg: McpServerConfig): Promise<void> {
-    const env = { ...process.env, ...(cfg.env || {}) }
+    const env: Record<string, string> = {}
+    for (const [k, v] of Object.entries({ ...process.env, ...(cfg.env || {}) })) {
+      if (v !== undefined) env[k] = v
+    }
 
     const transport = new StdioClientTransport({
       command: cfg.command,

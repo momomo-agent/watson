@@ -20,6 +20,12 @@ export interface SenseContext {
   activity: string
   /** Active app/window */
   activeApp: string
+  /** Active window title */
+  activeWindow: string
+  /** Key content visible on screen (truncated to 500 chars) */
+  visibleText: string
+  /** Currently focused element description */
+  focusedElement: string
   /** Key content visible on screen */
   screenSummary: string
   /** Timestamp of last perception */
@@ -39,6 +45,26 @@ export interface SenseConfig {
   changeThreshold?: number
 }
 
+// ── Constants ──
+
+const DEFAULT_INTERVAL_MS = 5000
+const DEFAULT_CHANGE_THRESHOLD = 0.3
+const VISIBLE_TEXT_MAX_CHARS = 500
+const CAPTURE_TIMEOUT_MS = 3000
+const CAPTURE_MAX_BUFFER = 10 * 1024 * 1024
+const SUMMARY_MAX_LABELS = 20
+
+// Change detection weights
+const WEIGHT_APP_SWITCH = 1.0
+const WEIGHT_WINDOW_SWITCH = 0.6
+const WEIGHT_FOCUS_CHANGE = 0.2
+const WEIGHT_TEXT_CHANGE = 0.4
+const TEXT_OVERLAP_THRESHOLD = 0.7
+
+// Confidence scores
+const CONFIDENCE_WITH_APP = 0.7
+const CONFIDENCE_WITHOUT_APP = 0.3
+
 // ── SenseLoop ──
 
 export class SenseLoop extends EventEmitter {
@@ -51,9 +77,9 @@ export class SenseLoop extends EventEmitter {
   constructor(config: SenseConfig = {}) {
     super()
     this.config = {
-      intervalMs: config.intervalMs ?? 5000,
+      intervalMs: config.intervalMs ?? DEFAULT_INTERVAL_MS,
       screenCapture: config.screenCapture ?? true,
-      changeThreshold: config.changeThreshold ?? 0.3,
+      changeThreshold: config.changeThreshold ?? DEFAULT_CHANGE_THRESHOLD,
     }
   }
 
@@ -133,8 +159,8 @@ export class SenseLoop extends EventEmitter {
       const { promisify } = await import('util')
       const execAsync = promisify(exec)
       const { stdout } = await execAsync('agent-control -p macos snapshot --compact', {
-        maxBuffer: 10 * 1024 * 1024,
-        timeout: 3000,
+        maxBuffer: CAPTURE_MAX_BUFFER,
+        timeout: CAPTURE_TIMEOUT_MS,
       })
       return JSON.parse(stdout)
     } catch {
@@ -143,43 +169,95 @@ export class SenseLoop extends EventEmitter {
   }
 
   private async infer(rawCapture: any): Promise<SenseContext> {
-    if (!rawCapture || !Array.isArray(rawCapture)) {
-      return {
-        activity: 'unknown',
-        activeApp: '',
-        screenSummary: '',
-        timestamp: Date.now(),
-        confidence: 0,
-      }
+    const empty: SenseContext = {
+      activity: 'unknown',
+      activeApp: '',
+      activeWindow: '',
+      visibleText: '',
+      focusedElement: '',
+      screenSummary: '',
+      timestamp: Date.now(),
+      confidence: 0,
     }
 
-    // Basic extraction without LLM (fast path)
+    if (!rawCapture || !Array.isArray(rawCapture)) return empty
+
     let activeApp = ''
+    let activeWindow = ''
+    let focusedElement = ''
+    const textParts: string[] = []
     const labels: string[] = []
 
     for (const el of rawCapture) {
+      // Extract active app from menu bar
       if (el.role === 'MenuBarItem' && el.label && el.label !== 'Apple' && !activeApp) {
         activeApp = el.label
+      }
+      // Extract window title
+      if ((el.role === 'Window' || el.role === 'AXWindow') && el.title && !activeWindow) {
+        activeWindow = el.title
+      }
+      // Extract focused element
+      if (el.focused && el.label) {
+        focusedElement = `${el.role || 'element'}: ${el.label}`
+      }
+      // Collect visible text (static text, text fields, headings)
+      if ((el.role === 'StaticText' || el.role === 'AXStaticText' ||
+           el.role === 'TextField' || el.role === 'AXTextField' ||
+           el.role === 'Heading' || el.role === 'AXHeading') && el.value) {
+        textParts.push(el.value)
       }
       if (el.label) labels.push(el.label)
     }
 
-    // TODO: Use agentic.think() with local model for richer inference
-    // e.g. ai.think('Summarize what the user is doing', { model: 'local' })
+    // Truncate visible text
+    const visibleText = textParts.join(' ').slice(0, VISIBLE_TEXT_MAX_CHARS)
+
+    // Infer activity from app + window context
+    let activity = `Using ${activeApp || 'unknown app'}`
+    if (activeWindow) activity += ` — ${activeWindow}`
 
     return {
-      activity: `Using ${activeApp || 'unknown app'}`,
+      activity,
       activeApp,
-      screenSummary: labels.slice(0, 20).join(' | '),
+      activeWindow,
+      visibleText,
+      focusedElement,
+      screenSummary: labels.slice(0, SUMMARY_MAX_LABELS).join(' | '),
       timestamp: Date.now(),
-      confidence: 0.5,
+      confidence: activeApp ? CONFIDENCE_WITH_APP : CONFIDENCE_WITHOUT_APP,
       raw: rawCapture,
     }
   }
 
   private hasSignificantChange(newContext: SenseContext): boolean {
     if (!this.lastContext) return true
-    if (newContext.activeApp !== this.lastContext.activeApp) return true
-    return false
+
+    const prev = this.lastContext
+    let score = 0
+
+    // App switch — highest weight
+    if (newContext.activeApp !== prev.activeApp) score += WEIGHT_APP_SWITCH
+    // Window switch — medium weight
+    if (newContext.activeWindow !== prev.activeWindow) score += WEIGHT_WINDOW_SWITCH
+    // Focused element changed — low weight
+    if (newContext.focusedElement !== prev.focusedElement) score += WEIGHT_FOCUS_CHANGE
+    // Visible text changed significantly
+    if (prev.visibleText && newContext.visibleText) {
+      const overlap = this.textOverlap(prev.visibleText, newContext.visibleText)
+      if (overlap < TEXT_OVERLAP_THRESHOLD) score += WEIGHT_TEXT_CHANGE
+    }
+
+    return score >= this.config.changeThreshold
+  }
+
+  /** Rough text similarity: ratio of shared words */
+  private textOverlap(a: string, b: string): number {
+    const wordsA = new Set(a.toLowerCase().split(/\s+/))
+    const wordsB = new Set(b.toLowerCase().split(/\s+/))
+    if (wordsA.size === 0 && wordsB.size === 0) return 1
+    let shared = 0
+    for (const w of wordsA) { if (wordsB.has(w)) shared++ }
+    return shared / Math.max(wordsA.size, wordsB.size)
   }
 }

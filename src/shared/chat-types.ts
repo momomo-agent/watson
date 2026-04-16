@@ -99,15 +99,6 @@ export interface ChatMessage {
   senderName?: string         // cached display name (may be stale — prefer live lookup)
 
   // Delegation chain
-  // In group mode, the owner agent may delegate to other agents.
-  // Each delegate response is a separate message with its own sender.
-  //
-  // Example flow:
-  //   msg1: { role: 'assistant', senderId: 'owner' }           ← owner starts
-  //   msg2: { role: 'assistant', senderId: 'A', delegatedBy: 'owner' }  ← A responds
-  //   msg3: { role: 'assistant', senderId: 'B', delegatedBy: 'owner' }  ← B responds
-  //   msg4: { role: 'assistant', senderId: 'owner' }           ← owner wraps up (optional)
-  //
   delegatedBy?: string        // who initiated this delegation (owner's senderId)
   delegateTask?: string       // what the delegate was asked to do
 
@@ -142,10 +133,13 @@ export interface MessageTiming {
 export interface MessageAttachment {
   name: string
   type: string                // mime type
-  url?: string                // data URL or file:// URL
+  url?: string                // data URL or file:// URL (for preview only)
+  path?: string               // absolute file path (Electron File.path)
   size?: number
   width?: number              // for images
   height?: number
+  isDirectory?: boolean       // true for folder attachments
+  fileCount?: number          // number of files in folder
 }
 
 // ── Session ──
@@ -168,7 +162,8 @@ export interface ChatUpdateEvent {
   statusText?: string
 }
 
-export interface ChatStatusEvent {
+/** Status event for real-time UI updates (reserved for future use) */
+interface ChatStatusEvent {
   sessionId: string
   status: MessageStatus
   statusText?: string

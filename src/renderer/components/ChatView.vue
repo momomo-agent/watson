@@ -11,6 +11,7 @@ import { useSession } from '../composables/useSession'
 import { useUnread } from '../composables/useUnread'
 import { useWorkspace } from '../composables/useWorkspace'
 import { speak, isVoiceEnabled } from '../infrastructure/voice'
+import type { MessageAttachment } from '../../shared/chat-types'
 import MessageList from './chat/MessageList.vue'
 import ChatInput from './ChatInput.vue'
 import StatusIndicator from './StatusIndicator.vue'
@@ -62,13 +63,13 @@ watch(messages, (msgs) => {
   }
 }, { deep: true })
 
-const handleSend = async (text: string, agentId?: string) => {
+const handleSend = async (text: string, agentId?: string, attachments?: MessageAttachment[]) => {
   // Auto-title with first message
   if (messages.value.length === 0 && sessionId.value) {
     const title = text.slice(0, 30).trim()
     if (title) renameSession(sessionId.value, title)
   }
-  await chatSession.value.sendMessage(text, agentId)
+  await chatSession.value.sendMessage(text, agentId, attachments)
 }
 
 const handleCancel = (msgId: string) => chatSession.value.cancel(msgId)

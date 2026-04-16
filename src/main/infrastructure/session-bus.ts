@@ -72,7 +72,9 @@ export class SessionBus {
     const subs = this.subscribers.get(sessionId) || this.subscribers.get('*')
     if (subs) {
       for (const fn of subs) {
-        try { fn(event) } catch {}
+        try { fn(event) } catch (err) {
+          console.error('[SessionBus] subscriber error:', err)
+        }
       }
     }
   }

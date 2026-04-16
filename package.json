@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "description": "AI workspace built with Vue3 + Electron",
   "main": "dist-electron/main/index.js",
-  "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "package": "electron-builder --mac --arm64"
+    "package": "electron-builder --mac --arm64",
+    "test": "vitest --run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "electron",
@@ -21,7 +22,6 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/js-yaml": "^4.0.9",
-    "@types/node-cron": "^3.0.11",
     "@vitejs/plugin-vue": "^6.0.5",
     "electron": "^41.2.0",
     "electron-builder": "^26.8.1",
@@ -29,11 +29,15 @@
     "electron-vite": "^5.0.0",
     "typescript": "^6.0.2",
     "vite": "^8.0.3",
+    "vitest": "^4.1.4",
     "vue": "^3.5.31"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "agentic": "file:../agentic/packages/agentic",
+    "agentic-claw": "file:../agentic/packages/claw",
+    "agentic-core": "file:../agentic/packages/core",
+    "agentic-memory": "file:../agentic/packages/memory",
     "better-sqlite3": "^12.8.0",
     "chokidar": "^5.0.0",
     "highlight.js": "^11.11.1",
@@ -57,5 +61,13 @@
       "target": "dmg",
       "category": "public.app-category.productivity"
     }
+  },
+  "type": "module",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild",
+      "electron"
+    ]
   }
 }

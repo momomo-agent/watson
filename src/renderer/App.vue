@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Sidebar from './components/Sidebar.vue'
 import ChatView from './components/ChatView.vue'
+import SenseIndicator from './components/SenseIndicator.vue'
 import { useTheme } from './composables/useTheme'
 import { initVoice } from './infrastructure/voice'
 
@@ -15,6 +16,9 @@ if (config) initVoice(config)
   <div class="app">
     <Sidebar />
     <ChatView />
+    <div class="sense-wrapper">
+      <SenseIndicator />
+    </div>
   </div>
 </template>
 
@@ -23,5 +27,12 @@ if (config) initVoice(config)
   display: flex;
   height: 100vh;
   overflow: hidden;
+}
+
+.sense-wrapper {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 100;
 }
 </style>

@@ -6,11 +6,12 @@
  */
 
 import { ChatSession } from '../domain/chat-session'
+import { GroupChat, type GroupConfig, type GroupParticipant } from '../domain/group-chat'
 import { McpManager } from '../infrastructure/mcp-manager'
 import { AgentManager } from '../infrastructure/agent-manager'
 import { CodingAgentManager } from '../infrastructure/coding-agent-manager'
 import { CodingAgentExecutor } from '../infrastructure/coding-agent-executor'
-import { createClawLLMStream } from '../infrastructure/claw-bridge'
+import { createClawLLMStream, createGroupLLMStream, warmupTools } from '../infrastructure/claw-bridge'
 import * as db from '../infrastructure/workspace-db'
 import type { AgentConfig } from '../infrastructure/agent-manager'
 
@@ -85,6 +86,9 @@ export class Workspace {
       const llmStream = createClawLLMStream(this.path, this.mcpManager, this.agentManager)
       const session = new ChatSession(sessionId, this.path, llmStream)
 
+      // Warmup: pre-load likely tools based on workspace context (fire-and-forget)
+      warmupTools(this.path, this.mcpManager).catch(() => {})
+
       // Load persisted messages from per-workspace DB
       const saved = db.loadMessages(this.path, sessionId)
       session.messages = saved.map(m => ({
@@ -124,5 +128,119 @@ export class Workspace {
       this.sessions.set(sessionId, session)
     }
     return this.sessions.get(sessionId)!
+  }
+
+  /**
+   * Send a message in group mode.
+   * Creates a GroupChat pipeline, runs it, and pushes produced messages into the session.
+   */
+  async sendGroupMessage(
+    sessionId: string,
+    userMessage: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<void> {
+    const session = this.getOrCreateSession(sessionId)
+    return session.enqueue(() => this._sendGroupMessageImpl(session, userMessage, options))
+  }
+
+  private async _sendGroupMessageImpl(
+    session: ChatSession,
+    userMessage: string,
+    options?: { signal?: AbortSignal },
+  ): Promise<void> {
+    const agents = this.agentManager.listAgents()
+    const defaultAgent = this.agentManager.getDefaultAgent()
+
+    // Build group config from agent manager
+    const orchestrator: GroupParticipant = {
+      id: defaultAgent.id,
+      name: defaultAgent.name,
+      description: defaultAgent.description,
+      avatar: defaultAgent.avatar,
+      color: defaultAgent.color,
+      systemPrompt: defaultAgent.systemPrompt,
+    }
+
+    const participants: GroupParticipant[] = agents
+      .filter(a => a.id !== defaultAgent.id)
+      .map(a => ({
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        avatar: a.avatar,
+        color: a.color,
+        systemPrompt: a.systemPrompt,
+        tools: a.tools,
+      }))
+
+    // If no other participants, fall back to single-agent
+    if (participants.length === 0) {
+      await session.sendMessage(userMessage)
+      return
+    }
+
+    const config: GroupConfig = {
+      orchestrator,
+      participants,
+      maxDelegateRounds: 3,
+    }
+
+    // Create stream factory for group chat
+    const createStream = (agentId: string | null, overrideTools?: any[]) => {
+      return createGroupLLMStream(
+        this.path,
+        this.mcpManager,
+        this.agentManager,
+        agentId,
+        overrideTools,
+      )
+    }
+
+    const groupChat = new GroupChat(config, createStream)
+
+    // Add user message to session
+    const userMsg = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+      role: 'user' as const,
+      content: userMessage,
+      timestamp: Date.now(),
+      status: 'complete' as const,
+    }
+    session.messages.push(userMsg)
+    session.emit('persist', userMsg)
+    session.emit('update', session.getUpdateEvent())
+
+    // Wire group chat events to session
+    groupChat.on('message:start', (msg) => {
+      session.messages.push(msg)
+      session.emit('persist', msg)
+      session.emit('update', session.getUpdateEvent())
+    })
+
+    groupChat.on('message:update', (msg) => {
+      session.emit('persist', msg)
+      session.emit('update', session.getUpdateEvent())
+    })
+
+    groupChat.on('message', (msg) => {
+      // Final message — ensure it's in the array if not already (from message:start)
+      if (!session.messages.find(m => m.id === msg.id)) {
+        session.messages.push(msg)
+      }
+      session.emit('persist', msg)
+      session.emit('update', session.getUpdateEvent())
+    })
+
+    // Build session summary from recent messages (lightweight)
+    const recentMsgs = session.messages.slice(-6)
+    const summary = recentMsgs.length > 1
+      ? recentMsgs
+          .filter(m => m.role !== 'system')
+          .map(m => `${m.senderName || m.role}: ${m.content.slice(0, 100)}`)
+          .join('\n')
+      : undefined
+
+    // Run pipeline
+    await groupChat.handleMessage(userMessage, summary, options?.signal)
   }
 }

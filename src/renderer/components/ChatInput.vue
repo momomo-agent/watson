@@ -4,16 +4,30 @@
  *
  * Features:
  * - Auto-resize textarea
- * - File drag & drop / paste / picker
+ * - File drag & drop / paste / picker (files + folders)
  * - Screen capture button
  * - Agent selector
  * - Shift+Enter for newline, Enter to send
+ * - Attachment limits: 20 files, 5 images
  */
-import { ref, nextTick, computed } from 'vue'
+import { ref, nextTick, computed, onBeforeUnmount } from 'vue'
 import { backend } from '../infrastructure/backend'
 import AgentSelector from './AgentSelector.vue'
 import AgentManager from './AgentManager.vue'
 import type { MessageAttachment } from '../../shared/chat-types'
+
+const MAX_FILES = 20
+const MAX_IMAGES = 5
+
+interface AttachmentEntry {
+  name: string
+  type: string          // mime type
+  size: number
+  path: string          // Electron File.path — absolute path
+  isDirectory?: boolean
+  fileCount?: number    // for directories
+  previewUrl?: string   // object URL for image thumbnail (renderer only)
+}
 
 const props = defineProps<{
   disabled?: boolean
@@ -29,34 +43,35 @@ const textarea = ref<HTMLTextAreaElement | null>(null)
 const capturing = ref(false)
 const selectedAgentId = ref<string>()
 const showAgentManager = ref(false)
-const files = ref<File[]>([])
+const entries = ref<AttachmentEntry[]>([])
 const dragOver = ref(false)
 
 // IME composition tracking
 const composing = ref(false)
 
-const hasContent = computed(() => input.value.trim() || files.value.length > 0)
+const hasContent = computed(() => input.value.trim() || entries.value.length > 0)
+
+const imageCount = computed(() => entries.value.filter(e => e.type.startsWith('image/')).length)
 
 // ── Send ──
 
 const handleSend = async () => {
   if (!hasContent.value || props.disabled) return
 
-  // Build attachments from files
-  const attachments: MessageAttachment[] = []
-  for (const file of files.value) {
-    const url = await fileToDataUrl(file)
-    attachments.push({
-      name: file.name,
-      type: file.type,
-      url,
-      size: file.size,
-    })
-  }
+  // Build attachments — pass paths, not data URLs (T6: no OOM)
+  const attachments: MessageAttachment[] = entries.value.map(e => ({
+    name: e.name,
+    type: e.type,
+    path: e.path,
+    size: e.size,
+    isDirectory: e.isDirectory,
+    fileCount: e.fileCount,
+  }))
 
   emit('send', input.value.trim(), selectedAgentId.value, attachments.length ? attachments : undefined)
   input.value = ''
-  files.value = []
+  revokeAllPreviews()
+  entries.value = []
   nextTick(() => {
     if (textarea.value) textarea.value.style.height = 'auto'
   })
@@ -100,18 +115,92 @@ const handleCapture = async () => {
 
 // ── File Handling ──
 
-const addFiles = (newFiles: FileList | File[]) => {
-  files.value = [...files.value, ...Array.from(newFiles)]
+function addFileEntries(fileList: FileList | File[]) {
+  const arr = Array.from(fileList)
+  for (const file of arr) {
+    if (entries.value.length >= MAX_FILES) break
+    if (file.type.startsWith('image/') && imageCount.value >= MAX_IMAGES) continue
+    const entry: AttachmentEntry = {
+      name: file.name,
+      type: file.type || 'application/octet-stream',
+      size: file.size,
+      path: (file as any).path || '', // Electron File.path
+    }
+    // Create object URL for image preview (lightweight, no base64 conversion)
+    if (file.type.startsWith('image/')) {
+      entry.previewUrl = URL.createObjectURL(file)
+    }
+    entries.value.push(entry)
+  }
 }
 
-const removeFile = (index: number) => {
-  files.value.splice(index, 1)
+function addDirectoryEntry(name: string, dirPath: string, fileCount: number) {
+  if (entries.value.length >= MAX_FILES) return
+  entries.value.push({
+    name,
+    type: 'inode/directory',
+    size: 0,
+    path: dirPath,
+    isDirectory: true,
+    fileCount,
+  })
 }
 
-const handleDrop = (e: DragEvent) => {
+const removeEntry = (index: number) => {
+  const entry = entries.value[index]
+  if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl)
+  entries.value.splice(index, 1)
+}
+
+function revokeAllPreviews() {
+  for (const e of entries.value) {
+    if (e.previewUrl) URL.revokeObjectURL(e.previewUrl)
+  }
+}
+
+onBeforeUnmount(() => revokeAllPreviews())
+
+// ── Drag & Drop (T4: folder support via webkitGetAsEntry) ──
+
+const handleDrop = async (e: DragEvent) => {
   e.preventDefault()
   dragOver.value = false
-  if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files)
+  if (!e.dataTransfer) return
+
+  const items = e.dataTransfer.items
+  if (items?.length) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      const entry = item.webkitGetAsEntry?.()
+      if (entry?.isDirectory) {
+        // Count files in directory (shallow)
+        const count = await countDirectoryFiles(entry as FileSystemDirectoryEntry)
+        const dirPath = (e.dataTransfer.files[i] as any)?.path || entry.fullPath
+        addDirectoryEntry(entry.name, dirPath, count)
+      } else {
+        const file = item.getAsFile()
+        if (file) addFileEntries([file])
+      }
+    }
+  } else if (e.dataTransfer.files?.length) {
+    addFileEntries(e.dataTransfer.files)
+  }
+}
+
+function countDirectoryFiles(dirEntry: FileSystemDirectoryEntry): Promise<number> {
+  return new Promise(resolve => {
+    const reader = dirEntry.createReader()
+    let count = 0
+    const readBatch = () => {
+      reader.readEntries(results => {
+        if (!results.length) { resolve(count); return }
+        count += results.length
+        if (count > 200) { resolve(count); return }
+        readBatch()
+      }, () => resolve(count))
+    }
+    readBatch()
+  })
 }
 
 const handlePaste = (e: ClipboardEvent) => {
@@ -124,26 +213,36 @@ const handlePaste = (e: ClipboardEvent) => {
       if (file) pastedFiles.push(file)
     }
   }
-  if (pastedFiles.length) addFiles(pastedFiles)
+  if (pastedFiles.length) addFileEntries(pastedFiles)
 }
 
 const openFilePicker = () => {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.multiple = true
-  input.onchange = () => { if (input.files) addFiles(input.files) }
-  input.click()
+  const inp = document.createElement('input')
+  inp.type = 'file'
+  inp.multiple = true
+  inp.onchange = () => { if (inp.files) addFileEntries(inp.files) }
+  inp.click()
+}
+
+const openFolderPicker = () => {
+  const inp = document.createElement('input')
+  inp.type = 'file'
+  ;(inp as any).webkitdirectory = true
+  inp.onchange = () => {
+    if (!inp.files?.length) return
+    // All files share the same root folder via webkitRelativePath
+    const first = inp.files[0]
+    const relPath = (first as any).webkitRelativePath || ''
+    const folderName = relPath.split('/')[0] || 'folder'
+    // Get the directory path from the first file's path
+    const filePath = (first as any).path || ''
+    const dirPath = filePath ? filePath.substring(0, filePath.length - relPath.length + folderName.length) : ''
+    addDirectoryEntry(folderName, dirPath, inp.files.length)
+  }
+  inp.click()
 }
 
 // ── Helpers ──
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.readAsDataURL(file)
-  })
-}
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`
@@ -151,8 +250,18 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
 }
 
-function isImage(file: File): boolean {
-  return file.type.startsWith('image/')
+function isImage(entry: AttachmentEntry): boolean {
+  return entry.type.startsWith('image/')
+}
+
+function fileTypeIcon(entry: AttachmentEntry): string {
+  if (entry.isDirectory) return '📁'
+  if (entry.type.startsWith('image/')) return '🖼'
+  if (entry.type.startsWith('text/') || /\.(md|ts|js|py|json|yaml|yml|html|css|vue)$/i.test(entry.name)) return '📄'
+  if (entry.type.startsWith('video/')) return '🎬'
+  if (entry.type.startsWith('audio/')) return '🎵'
+  if (entry.type === 'application/pdf') return '📕'
+  return '📎'
 }
 </script>
 
@@ -165,13 +274,14 @@ function isImage(file: File): boolean {
     @drop="handleDrop"
   >
     <!-- File previews -->
-    <div v-if="files.length" class="file-previews">
-      <div v-for="(file, i) in files" :key="i" class="file-preview">
-        <img v-if="isImage(file)" :src="URL.createObjectURL(file)" class="file-thumb" />
-        <span v-else class="file-icon">📎</span>
-        <span class="file-name">{{ file.name }}</span>
-        <span class="file-size">{{ formatSize(file.size) }}</span>
-        <button class="file-remove" @click="removeFile(i)">✕</button>
+    <div v-if="entries.length" class="file-previews">
+      <div v-for="(entry, i) in entries" :key="i" class="file-preview">
+        <img v-if="isImage(entry) && entry.previewUrl" :src="entry.previewUrl" class="file-thumb" />
+        <span v-else class="file-icon">{{ fileTypeIcon(entry) }}</span>
+        <span class="file-name">{{ entry.name }}</span>
+        <span v-if="entry.isDirectory && entry.fileCount" class="file-size">{{ entry.fileCount }} 文件</span>
+        <span v-else-if="entry.size" class="file-size">{{ formatSize(entry.size) }}</span>
+        <button class="file-remove" @click="removeEntry(i)">✕</button>
       </div>
     </div>
 
@@ -186,6 +296,12 @@ function isImage(file: File): boolean {
       <button class="icon-btn" @click="openFilePicker" :disabled="disabled" title="Attach file">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+        </svg>
+      </button>
+
+      <button class="icon-btn" @click="openFolderPicker" :disabled="disabled" title="Attach folder">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
         </svg>
       </button>
 

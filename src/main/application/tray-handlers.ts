@@ -65,6 +65,7 @@ function syncBadge() {
   trayManager?.setBadgeCount(total)
 }
 
-export function getTrayManager(): TrayManager | null {
+/** Get tray manager instance (reserved for future use) */
+function getTrayManager(): TrayManager | null {
   return trayManager
 }

@@ -15,6 +15,11 @@ import { sessionBus } from '../infrastructure/session-bus'
 
 const workspaceManager = new WorkspaceManager()
 
+/** Expose workspace manager for SenseLoop wiring */
+export function getWorkspaceManager(): WorkspaceManager {
+  return workspaceManager
+}
+
 // Track which sessions have listeners attached
 const attachedListeners = new Set<string>()
 
@@ -159,11 +164,14 @@ export function registerChatHandlers(mainWindow: BrowserWindow, mcpManager: McpM
     return { success: true }
   })
   
-  ipcMain.handle('chat:send', async (_event, { sessionId, text, workspacePath, agentId }) => {
+    ipcMain.handle('chat:send', async (_event, { sessionId, text, workspacePath, agentId, attachments, mode }) => {
     try {
       const workspace = workspaceManager.getOrCreate(workspacePath || process.cwd())
       const session = workspace.getOrCreateSession(sessionId)
       const agentManager = workspace.getAgentManager()
+
+      // Attach listener once per session
+      ensureSessionListener(session, sessionId, mainWindow)
 
       // MOMO-50: Parse @mention from text
       let finalAgentId = agentId
@@ -181,16 +189,24 @@ export function registerChatHandlers(mainWindow: BrowserWindow, mcpManager: McpM
       // MOMO-52: Check if this is a coding agent
       const agent = agentManager.getAgent(finalAgentId)
       if (agent?.type === 'coding-agent') {
-        // MOMO-56: Attach listener for unread tracking
-        ensureSessionListener(session, sessionId, mainWindow)
-        // Route to coding agent
         return await handleCodingAgentMessage(workspace, session, sessionId, text, agent, mainWindow)
       }
 
-      // Attach listener once per session
-      ensureSessionListener(session, sessionId, mainWindow)
+      // Group mode: auto-detect if multiple agents configured, or explicit mode
+      const allAgents = agentManager.listAgents()
+      const isGroupMode = mode === 'group' || (allAgents.length > 1 && mode !== 'chat')
+      if (isGroupMode) {
+        try {
+          await workspace.sendGroupMessage(sessionId, text)
+        } catch (groupErr: any) {
+          throw groupErr
+        }
+        sessionBus.emit(sessionId, 'user:message', { text })
+        return { success: true }
+      }
 
-      await session.sendMessage(text, finalAgentId)
+      await session.sendMessage(text, finalAgentId, attachments)
+      sessionBus.emit(sessionId, 'user:message', { text })
       return { success: true }
     } catch (error: any) {
       return { success: false, error: error.message }

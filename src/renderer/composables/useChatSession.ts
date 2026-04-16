@@ -6,9 +6,9 @@
 
 import { ref, onUnmounted } from 'vue'
 import { backend } from '../infrastructure/backend'
-import type { ChatMessage, MessageStatus } from '../../shared/chat-types'
+import type { ChatMessage, MessageStatus, MessageAttachment } from '../../shared/chat-types'
 
-export function useChatSession(sessionId: string) {
+export function useChatSession(sessionId: string, opts?: { mode?: 'chat' | 'group' }) {
   const messages = ref<ChatMessage[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -53,13 +53,13 @@ export function useChatSession(sessionId: string) {
     document.removeEventListener('visibilitychange', onVisibilityChange)
   })
 
-  const sendMessage = async (text: string, agentId?: string) => {
-    if (!text.trim()) return
+  const sendMessage = async (text: string, agentId?: string, attachments?: MessageAttachment[]) => {
+    if (!text.trim() && !attachments?.length) return
     isLoading.value = true
     error.value = null
 
     try {
-      const result = await backend.invoke('chat:send', { sessionId, text, agentId })
+      const result = await backend.invoke('chat:send', { sessionId, text, agentId, attachments, mode: opts?.mode })
       if (result && !result.success) {
         error.value = result.error || 'Failed to send message'
       }

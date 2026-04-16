@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 
-app.commandLine.appendSwitch('remote-debugging-port', '9229')
+app.commandLine.appendSwitch('remote-debugging-port', '9223')
 
 // 设置全局代理（走 ClashX）
 try {
@@ -9,7 +9,7 @@ try {
   setGlobalDispatcher(new ProxyAgent(proxy))
 } catch {}
 import { join } from 'path'
-import { registerChatHandlers } from './application/chat-handlers'
+import { registerChatHandlers, getWorkspaceManager } from './application/chat-handlers'
 import { registerWorkspaceHandlers } from './application/workspace-handlers'
 import { registerPersistenceHandlers } from './application/persistence-handlers'
 import { registerCodingAgentHandlers } from './application/coding-agent-handlers'
@@ -18,6 +18,7 @@ import { registerSettingsHandlers } from './application/settings-handlers'
 import { registerSchedulerHandlers, setSchedulers } from './application/scheduler-handlers'
 import { registerTrayHandlers } from './application/tray-handlers'
 import { registerFileWatcherHandlers, startFileWatcher, stopAllWatchers } from './application/file-watcher-handlers'
+import { registerProactiveHandlers, registerToolRegistryHandlers } from './application/proactive-handlers'
 import { HeartbeatScheduler } from './application/heartbeat-scheduler'
 import { CronScheduler } from './application/cron-scheduler'
 import { TrayManager } from './application/tray-manager'
@@ -28,7 +29,10 @@ import { SkillManager } from './domain/skill-manager'
 import { configureAgentic } from './infrastructure/claw-bridge'
 import { initRegistry, getCurrentWorkspace } from './infrastructure/workspace-registry'
 import { closeAll as closeAllDbs } from './infrastructure/workspace-db'
+import { closeDb as closeMemoryDb } from './infrastructure/memory-index'
 import { sessionBus } from './infrastructure/session-bus'
+import { SenseLoop } from './domain/sense-loop'
+import { ProactiveEngine } from './domain/proactive-engine'
 
 let mainWindow: BrowserWindow | null = null
 let trayManager: TrayManager | null = null
@@ -36,6 +40,8 @@ const mcpManager = new McpManager()
 let skillManager: SkillManager | null = null
 let heartbeat: HeartbeatScheduler | null = null
 let cron: CronScheduler | null = null
+let senseLoop: SenseLoop | null = null
+let proactiveEngine: ProactiveEngine | null = null
 
 function createWindow() {
   // Initialize workspace registry
@@ -128,7 +134,83 @@ function createWindow() {
     
     setSchedulers(heartbeat, cron)
     startFileWatcher(wsPath, mainWindow)
+
+    // ── SenseLoop: ambient perception ──
+    try {
+      // @ts-ignore — JS module without type declarations
+      const { ai } = require('agentic')
+      senseLoop = new SenseLoop()
+      senseLoop.setAgentic(ai)
+
+      // Push context updates to all active ChatSessions
+      senseLoop.on('context', (ctx) => {
+        const wm = getWorkspaceManager()
+        for (const workspace of wm.list()) {
+          for (const session of workspace.sessions.values()) {
+            session.setSenseContext(ctx)
+          }
+        }
+      })
+
+      senseLoop.on('error', (err) => {
+        console.warn('[SenseLoop] tick error:', err?.message || err)
+      })
+
+      senseLoop.start()
+      console.log('[SenseLoop] started (5s interval)')
+
+      // ── ProactiveEngine: ambient intelligence ──
+      proactiveEngine = new ProactiveEngine()
+      registerProactiveHandlers(proactiveEngine)
+      registerToolRegistryHandlers(mcpManager)
+
+      // Feed sense updates to proactive engine
+      senseLoop.on('context', (ctx) => {
+        proactiveEngine?.onSenseUpdate(ctx)
+      })
+
+      // Feed heartbeat ticks to proactive engine
+      heartbeat?.on('tick', () => {
+        proactiveEngine?.onHeartbeatTick()
+      })
+
+      // When proactive engine fires, push to renderer
+      proactiveEngine.on('signal', (signal) => {
+        console.log(`[Proactive] Signal: ${signal.type} — ${signal.reason}`)
+        sessionBus.emit('__proactive__', 'proactive:signal', signal)
+      })
+
+      // Reset proactive engine on user messages
+      sessionBus.subscribe('*', (event) => {
+        if (event.type === 'user:message') {
+          proactiveEngine?.onUserMessage()
+        }
+      })
+
+      console.log('[ProactiveEngine] started')
+    } catch (err) {
+      console.warn('[SenseLoop] Failed to start:', err)
+    }
   }
+
+  // ── Sense IPC handlers ──
+  ipcMain.handle('sense:status', () => {
+    if (!senseLoop) return { running: false, context: null }
+    return {
+      running: senseLoop.isRunning(),
+      context: senseLoop.getContext(),
+    }
+  })
+
+  ipcMain.handle('sense:toggle', () => {
+    if (!senseLoop) return { running: false }
+    if (senseLoop.isRunning()) {
+      senseLoop.stop()
+    } else {
+      senseLoop.start()
+    }
+    return { running: senseLoop.isRunning() }
+  })
 }
 
 app.whenReady().then(createWindow)
@@ -140,8 +222,10 @@ app.on('before-quit', () => {
 app.on('window-all-closed', () => {
   heartbeat?.stop()
   cron?.stop()
+  senseLoop?.stop()
   stopAllWatchers()
   closeAllDbs()
+  closeMemoryDb()
   if (process.platform !== 'darwin') {
     app.quit()
   }

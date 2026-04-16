@@ -103,11 +103,13 @@ export function loadConfig(workspacePath: string): Config {
           if (providerConfig.apiKey) {
             const api = providerConfig.api || ''
             const isAnthropic = api.includes('anthropic') || name.includes('anthropic')
+            const firstModel = providerConfig.models?.[0]
+            const modelId = typeof firstModel === 'object' ? firstModel.id : firstModel
             return normalizeConfig({
               provider: isAnthropic ? 'anthropic' : 'openai',
               apiKey: providerConfig.apiKey,
               baseUrl: providerConfig.baseUrl,
-              model: providerConfig.models?.[0] || (isAnthropic ? 'claude-sonnet-4-20250514' : 'gpt-4')
+              model: modelId || (isAnthropic ? 'claude-sonnet-4-20250514' : 'gpt-4')
             })
           }
         }

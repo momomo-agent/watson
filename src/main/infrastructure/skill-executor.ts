@@ -43,8 +43,10 @@ export async function executeSkill(
     }
   }
 
-  const env = {
-    ...process.env,
+  const env: Record<string, string> = {
+    ...Object.fromEntries(
+      Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)
+    ),
     SKILL_DIR: skillDir,
     WORKSPACE_DIR: context.workspaceDir,
     ...context.env

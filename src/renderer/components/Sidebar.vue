@@ -175,18 +175,18 @@ Settings
 .session-list {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 0.5rem;
   padding-bottom: 2rem;
 }
 
 .session-item {
   display: flex;
   align-items: center;
-  padding: 0.75rem;
+  padding: 0.5rem 0.625rem;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  margin-bottom: 0.5rem;
+  margin-bottom: 2px;
   gap: 0.5rem;
   border: 1px solid transparent;
   position: relative;
@@ -217,7 +217,7 @@ Settings
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.125rem;
 }
 
 .session-title {

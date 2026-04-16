@@ -26,9 +26,10 @@ export class ToolRunner {
   }
 
   static async execute(tool: ToolCall, options: { signal: AbortSignal, workspacePath: string }): Promise<ToolResult> {
-    const timeoutPromise = new Promise<ToolResult>((_, reject) => 
-      setTimeout(() => reject(new Error(`Tool ${tool.name} timed out after ${this.TIMEOUT_MS}ms`)), this.TIMEOUT_MS)
-    )
+    let timer: ReturnType<typeof setTimeout>
+    const timeoutPromise = new Promise<ToolResult>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Tool ${tool.name} timed out after ${this.TIMEOUT_MS}ms`)), this.TIMEOUT_MS)
+    })
 
     try {
       return await Promise.race([
@@ -37,6 +38,8 @@ export class ToolRunner {
       ])
     } catch (error: any) {
       return { success: false, error: error.message }
+    } finally {
+      clearTimeout(timer!)
     }
   }
 

@@ -1,4 +1,4 @@
-import cron from 'node-cron'
+import * as cron from 'node-cron'
 
 interface CronJob {
   id: string
@@ -23,7 +23,7 @@ export class CronScheduler {
       try { await task() } catch (error) {
         console.error(`[Cron] Job ${id} failed:`, error)
       }
-    }, { scheduled: false })
+    })
 
     this.jobs.set(id, { id, schedule, task, cronTask })
   }

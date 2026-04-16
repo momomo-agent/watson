@@ -14,6 +14,7 @@
 import { EventEmitter } from 'events'
 import type {
   ChatMessage,
+  MessageAttachment,
   MessageStatus,
   FlowSegment,
   ToolCall,
@@ -21,6 +22,10 @@ import type {
   ChatUpdateEvent,
 } from '../../shared/chat-types'
 import type { SenseContext } from './sense-loop'
+
+// ── Constants ──
+
+const SENSE_CONFIDENCE_THRESHOLD = 0.3
 
 // ── Stream Protocol ──
 
@@ -63,6 +68,11 @@ export class ChatSession extends EventEmitter {
   private llmStream: LLMStreamFn
   private statusText: string | null = null
   private senseContext: SenseContext | null = null
+  private lastInjectedSenseTimestamp: number = 0
+
+  // Per-session message queue — ensures serial processing
+  private _queue: Array<() => Promise<void>> = []
+  private _processing = false
 
   constructor(id: string, workspacePath: string, llmStream: LLMStreamFn) {
     super()
@@ -71,15 +81,54 @@ export class ChatSession extends EventEmitter {
     this.llmStream = llmStream
   }
 
+  /**
+   * Enqueue an async task. Tasks run serially per session.
+   * Returns a promise that resolves when the task completes.
+   */
+  enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      this._queue.push(async () => {
+        try { resolve(await fn()) } catch (e) { reject(e) }
+      })
+      this._drain()
+    })
+  }
+
+  private async _drain(): Promise<void> {
+    if (this._processing) return
+    this._processing = true
+    while (this._queue.length > 0) {
+      const task = this._queue.shift()!
+      await task()
+    }
+    this._processing = false
+  }
+
   // ── Public API ──
 
-  async sendMessage(text: string, agentId?: string): Promise<string> {
+  async sendMessage(text: string, agentId?: string, attachments?: MessageAttachment[]): Promise<string> {
+    return this.enqueue(async () => {
+      return this._sendMessageImpl(text, agentId, attachments)
+    })
+  }
+
+  private async _sendMessageImpl(text: string, agentId?: string, attachments?: MessageAttachment[]): Promise<string> {
+    // Process attachments in main process (safe from renderer OOM)
+    let processedAttachments: import('../../shared/chat-types').MessageAttachment[] | undefined
+    if (attachments?.length) {
+      const { processAttachments } = await import('../infrastructure/attachment-processor')
+      processedAttachments = attachments
+      // Store processed results for LLM message building
+      ;(this as any)._pendingProcessed = await processAttachments(attachments)
+    }
+
     const userMsg: ChatMessage = {
       id: this.genId(),
       role: 'user',
       content: text,
       timestamp: Date.now(),
       status: 'complete',
+      attachments: processedAttachments,
     }
     this.messages.push(userMsg)
     this.persist(userMsg)
@@ -398,22 +447,93 @@ export class ChatSession extends EventEmitter {
       const idx = msgs.findIndex(m => m.id === beforeMessageId)
       if (idx >= 0) msgs = msgs.slice(0, idx)
     }
-    const history = msgs
-      .filter(m => m.status === 'complete' && m.content)
-      .map(m => ({ role: m.role, content: m.content }))
 
-    // Inject ambient context from SenseLoop (if available)
-    if (this.senseContext && this.senseContext.confidence > 0.3) {
+    // Check if the last user message has pending processed attachments
+    const pendingProcessed: import('../infrastructure/attachment-processor').ProcessedAttachment[] | undefined
+      = (this as any)._pendingProcessed
+    delete (this as any)._pendingProcessed
+
+    const history = msgs
+      .filter(m => m.status === 'complete' && (m.content || m.attachments?.length))
+      .map(m => {
+        // For the last user message with pending processed attachments, build multi-part content
+        if (m.role === 'user' && m === msgs[msgs.length - 1] && pendingProcessed?.length) {
+          return { role: m.role, content: this.buildUserContentWithAttachments(m.content, pendingProcessed) }
+        }
+        return { role: m.role, content: m.content }
+      })
+
+    // Inject ambient context from SenseLoop (only when context has changed since last injection)
+    if (this.senseContext && this.senseContext.confidence > SENSE_CONFIDENCE_THRESHOLD
+        && this.senseContext.timestamp > this.lastInjectedSenseTimestamp) {
       const ctx = this.senseContext
-      const contextMsg = `[Ambient Context] User is ${ctx.activity}. Active app: ${ctx.activeApp}. Screen: ${ctx.screenSummary}`
-      // Prepend as system-like context (using user role for compatibility)
+      const contextMsg = [
+        `[当前环境]`,
+        `用户正在使用: ${ctx.activeApp}${ctx.activeWindow ? ' - ' + ctx.activeWindow : ''}`,
+        ctx.visibleText ? `屏幕内容摘要: ${ctx.visibleText.slice(0, 200)}` : '',
+        ctx.focusedElement ? `焦点元素: ${ctx.focusedElement}` : '',
+      ].filter(Boolean).join('\n')
       history.unshift({ role: 'user', content: `<context>${contextMsg}</context>` })
+      this.lastInjectedSenseTimestamp = ctx.timestamp
     }
 
     return history
   }
 
+  /**
+   * Build Anthropic multi-part content array from user text + processed attachments.
+   * - image → { type: 'image', source: { type: 'base64', ... } }
+   * - text/directory → appended to text content
+   * - file_ref → hint to use file_read tool
+   */
+  private buildUserContentWithAttachments(
+    text: string,
+    processed: import('../infrastructure/attachment-processor').ProcessedAttachment[],
+  ): any[] {
+    const content: any[] = []
+
+    // Start with user text
+    let textParts = text || ''
+
+    for (const att of processed) {
+      if (att.type === 'image') {
+        // Flush accumulated text before image block
+        if (textParts.trim()) {
+          content.push({ type: 'text', text: textParts })
+          textParts = ''
+        }
+        // Extract base64 data and media type from data URL
+        const match = att.content.match(/^data:(image\/[^;]+);base64,(.+)$/)
+        if (match) {
+          content.push({
+            type: 'image',
+            source: { type: 'base64', media_type: match[1], data: match[2] },
+          })
+        }
+      } else if (att.type === 'text') {
+        textParts += `\n\n[附件: ${att.metadata.name}]\n\`\`\`\n${att.content}\n\`\`\``
+      } else if (att.type === 'directory') {
+        textParts += `\n\n[附件: 📁 ${att.metadata.name}]\n\`\`\`\n${att.content}\n\`\`\``
+      } else if (att.type === 'file_ref') {
+        textParts += `\n\n[附件: ${att.metadata.path} (${formatBytes(att.metadata.size)}) — 使用 file_read 工具查看内容]`
+      }
+    }
+
+    // Flush remaining text
+    if (textParts.trim()) {
+      content.push({ type: 'text', text: textParts })
+    }
+
+    return content.length === 1 && content[0].type === 'text' ? content[0].text : content
+  }
+
   private genId(): string {
     return Date.now().toString(36) + Math.random().toString(36).slice(2)
   }
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
 }
