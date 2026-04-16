@@ -64,9 +64,19 @@ function createWindow() {
   // Bind session bus to window for event push + visibility tracking
   sessionBus.bindWindow(mainWindow)
 
-  // Global shortcut: Cmd+Shift+Space to toggle window
+  // Global shortcut: configurable, default Control+Space
+  const shortcutKey = (() => {
+    try {
+      const appConfigPath = join(app.getPath('userData'), 'config.json')
+      if (require('fs').existsSync(appConfigPath)) {
+        const cfg = JSON.parse(require('fs').readFileSync(appConfigPath, 'utf8'))
+        if (cfg.globalShortcut) return cfg.globalShortcut
+      }
+    } catch {}
+    return 'Control+Space'
+  })()
   try {
-    globalShortcut.register('CommandOrControl+Shift+Space', () => {
+    globalShortcut.register(shortcutKey, () => {
       if (mainWindow?.isVisible() && mainWindow.isFocused()) {
         mainWindow.hide()
       } else {
@@ -76,7 +86,7 @@ function createWindow() {
       }
     })
   } catch (err) {
-    console.warn('Failed to register global shortcut:', err)
+    console.warn(`Failed to register global shortcut '${shortcutKey}':`, err)
   }
 
   // macOS: hide on close instead of quit

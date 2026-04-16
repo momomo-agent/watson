@@ -42,6 +42,9 @@ export interface Config {
   selectedModel?: string
   voice?: VoiceConfig
   
+  // Global shortcut to toggle window (default: 'Control+Space')
+  globalShortcut?: string
+  
   // Legacy single-provider format (for backward compatibility)
   provider?: 'anthropic' | 'openai'
   apiKey?: string
