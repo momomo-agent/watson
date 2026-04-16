@@ -5,22 +5,35 @@ import SenseIndicator from './components/SenseIndicator.vue'
 import ProactiveToast from './components/ProactiveToast.vue'
 import { useTheme } from './composables/useTheme'
 import { initVoice } from './infrastructure/voice'
+import { ref } from 'vue'
 
 useTheme()
 
-// Init voice from config (config is passed via IPC or window.__watsonConfig)
 const config = (window as any).__watsonConfig
 if (config) initVoice(config)
+
+const chatViewRef = ref<any>(null)
+
+function handleProactiveAct(context: Record<string, any>) {
+  const reason = context.reason as string
+  let text = ''
+  if (reason === 'error_detected' && context.snippet) {
+    text = `我看到屏幕上有错误：\n\`\`\`\n${context.snippet}\n\`\`\`\n帮我分析一下`
+  } else if (reason === 'rapid_app_switching' && context.currentApp) {
+    text = `我在 ${context.currentApp} 里遇到问题了，帮我看看`
+  }
+  chatViewRef.value?.prefillInput(text)
+}
 </script>
 
 <template>
   <div class="app">
     <Sidebar />
-    <ChatView />
+    <ChatView ref="chatViewRef" />
     <div class="sense-wrapper">
       <SenseIndicator />
     </div>
-    <ProactiveToast />
+    <ProactiveToast @act="handleProactiveAct" />
   </div>
 </template>
 

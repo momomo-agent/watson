@@ -187,8 +187,9 @@ const removeCronJob = async (id: string) => {
 </script>
 
 <template>
-  <div class="overlay" @click="emit('close')">
-    <div class="panel" @click.stop>
+  <Transition name="slide">
+    <div class="overlay" @click="emit('close')">
+      <div class="panel" @click.stop>
       <div class="header">
         <h2>Settings</h2>
         <button @click="emit('close')" class="close-btn">×</button>
@@ -333,6 +334,7 @@ const removeCronJob = async (id: string) => {
       </div>
     </div>
   </div>
+  </Transition>
 </template>
 
 <style scoped>
@@ -342,22 +344,37 @@ const removeCronJob = async (id: string) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: flex-end;
   z-index: 1000;
 }
 
 .panel {
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  width: 600px;
+  border-left: 1px solid var(--border-color);
+  border-radius: 0;
+  width: 420px;
   max-width: 90vw;
-  max-height: 90vh;
+  height: 100vh;
+  max-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Slide transition */
+.slide-enter-active,
+.slide-leave-active {
+  transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.slide-enter-from,
+.slide-leave-to {
+  opacity: 0;
+}
+.slide-enter-from .panel,
+.slide-leave-to .panel {
+  transform: translateX(100%);
 }
 
 .header {

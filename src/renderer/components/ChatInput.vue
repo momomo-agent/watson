@@ -51,6 +51,17 @@ const composing = ref(false)
 
 const hasContent = computed(() => input.value.trim() || entries.value.length > 0)
 
+/** Prefill input text and focus (called from parent via template ref) */
+function prefill(text: string) {
+  input.value = text
+  nextTick(() => {
+    textarea.value?.focus()
+    handleInput()
+  })
+}
+
+defineExpose({ prefill })
+
 const imageCount = computed(() => entries.value.filter(e => e.type.startsWith('image/')).length)
 
 // ── Send ──

@@ -5,7 +5,7 @@
  * Composes: MessageList + ChatInput + StatusIndicator
  * Manages session lifecycle and message routing.
  */
-import { ref, watch, computed, shallowRef, watchEffect } from 'vue'
+import { ref, watch, computed, shallowRef, watchEffect, useTemplateRef } from 'vue'
 import { useChatSession } from '../composables/useChatSession'
 import { useSession } from '../composables/useSession'
 import { useUnread } from '../composables/useUnread'
@@ -74,6 +74,26 @@ const handleSend = async (text: string, agentId?: string, attachments?: MessageA
 
 const handleCancel = (msgId: string) => chatSession.value.cancel(msgId)
 const handleRetry = (msgId: string) => chatSession.value.retry(msgId)
+
+const chatInputRef = ref<any>(null)
+
+const quickActions = [
+  { icon: '📁', title: '分析项目', desc: '了解当前项目结构', text: () => `分析 ${workspacePath.value} 的项目结构，给我一个概览` },
+  { icon: '🖥️', title: '看看屏幕', desc: '截图并分析当前内容', text: () => `用 screen_sense 截图，告诉我你看到了什么` },
+  { icon: '💻', title: '写代码', desc: '帮我开始一段代码', text: () => `我需要写一段代码，帮我开始` },
+  { icon: '🔍', title: '搜索文件', desc: '在项目里搜索内容', text: () => `在 ${workspacePath.value} 里搜索` },
+]
+
+const handleQuickAction = (action: typeof quickActions[0]) => {
+  chatInputRef.value?.prefill(action.text())
+}
+
+/** Called from App.vue when ProactiveToast is acted on */
+function prefillInput(text: string) {
+  chatInputRef.value?.prefill(text)
+}
+
+defineExpose({ prefillInput })
 </script>
 
 <template>
@@ -88,7 +108,18 @@ const handleRetry = (msgId: string) => chatSession.value.retry(msgId)
         <div class="empty-state">
           <div class="empty-logo">W</div>
           <p>Watson</p>
-          <span>How can I help you today?</span>
+          <div class="quick-actions">
+            <button
+              v-for="action in quickActions"
+              :key="action.title"
+              class="quick-action"
+              @click="handleQuickAction(action)"
+            >
+              <span class="qa-icon">{{ action.icon }}</span>
+              <span class="qa-title">{{ action.title }}</span>
+              <span class="qa-desc">{{ action.desc }}</span>
+            </button>
+          </div>
         </div>
       </template>
     </MessageList>
@@ -96,6 +127,7 @@ const handleRetry = (msgId: string) => chatSession.value.retry(msgId)
     <div v-if="error" class="global-error">{{ error }}</div>
 
     <ChatInput
+      ref="chatInputRef"
       :disabled="isLoading"
       :workspace-path="workspacePath"
       @send="handleSend"
@@ -148,6 +180,47 @@ const handleRetry = (msgId: string) => chatSession.value.retry(msgId)
 
 .empty-state span {
   font-size: 0.9375rem;
+  color: var(--text-secondary);
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.quick-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.75rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.quick-action:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-color);
+}
+
+.qa-icon { font-size: 1.25rem; }
+
+.qa-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.qa-desc {
+  font-size: 0.75rem;
   color: var(--text-secondary);
 }
 
