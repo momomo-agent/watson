@@ -43,8 +43,8 @@ const displayName = computed(() => {
 
 const avatarText = computed(() => {
   if (props.senderAvatar) return ''  // will use image
-  const name = displayName.value
-  return name.charAt(0).toUpperCase()
+  if (isUser.value) return 'Y'
+  return 'W'
 })
 
 const timeStr = computed(() => {
@@ -226,12 +226,34 @@ function formatAttSize(bytes: number): string {
 .message-item {
   display: flex;
   gap: 12px;
-  padding: 8px 24px;
+  padding: 10px 24px;
   transition: background 0.12s;
 }
 
 .message-item:hover {
   background: var(--bg-hover, #ffffff04);
+}
+
+/* User messages: right-aligned */
+.message-item.is-user {
+  flex-direction: row-reverse;
+}
+
+.message-item.is-user .msg-avatar { display: none; }
+
+.message-item.is-user .msg-body { max-width: 72%; }
+
+.message-item.is-user .msg-header { flex-direction: row-reverse; }
+
+.message-item.is-user .msg-time { margin-left: 0; margin-right: auto; }
+
+.message-item.is-user .msg-user-text {
+  background: var(--msg-user-bg);
+  border: 1px solid var(--msg-user-border);
+  border-radius: 12px 12px 4px 12px;
+  padding: 8px 12px;
+  display: inline-block;
+  max-width: 100%;
 }
 
 /* Avatar */

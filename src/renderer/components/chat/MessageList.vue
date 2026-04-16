@@ -91,6 +91,14 @@ const streamingMsgId = computed(() => {
   scroll-behavior: smooth;
 }
 
+/* Constrain message width for readability */
+.message-list > * {
+  max-width: 860px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
 /* Scrollbar */
 .message-list::-webkit-scrollbar {
   width: 6px;

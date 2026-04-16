@@ -61,7 +61,9 @@ const hasError = computed(() => props.tools.some(t => t.status === 'error'))
       <span class="tool-group-icon">{{ headerIcon }}</span>
       <span class="tool-group-text">{{ headerText }}</span>
       <span v-if="isRunning" class="tool-group-spinner" />
-      <span class="tool-group-chevron">{{ expanded ? '▼' : '▶' }}</span>
+      <span v-else-if="hasError" class="tool-status-icon error">✕</span>
+      <span v-else class="tool-status-icon done">✓</span>
+      <span class="tool-group-chevron">{{ expanded ? '▾' : '▸' }}</span>
     </div>
     <div v-if="expanded" class="tool-group-body">
       <ToolStep v-for="tool in tools" :key="tool.id" :tool="tool" />
@@ -71,26 +73,29 @@ const hasError = computed(() => props.tools.some(t => t.status === 'error'))
 
 <style scoped>
 .tool-group {
-  margin: 4px 0;
+  margin: 6px 0;
   border-radius: 8px;
-  background: var(--bg-tertiary, #1a1a2e);
-  border: 1px solid var(--border-color, #2a2a3e);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   overflow: hidden;
+  transition: border-color 0.2s;
 }
 
 .tool-group.running {
-  border-color: var(--accent-dim, #3b82f633);
+  border-color: var(--accent-color);
+  background: var(--tool-accent-bg);
 }
 
 .tool-group.has-error {
-  border-color: var(--error-dim, #ef444433);
+  border-color: var(--error);
+  background: var(--error-bg);
 }
 
 .tool-group-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 7px 10px;
   cursor: pointer;
   font-size: 0.8125rem;
   color: var(--text-secondary);
@@ -102,10 +107,7 @@ const hasError = computed(() => props.tools.some(t => t.status === 'error'))
   background: var(--bg-hover, #ffffff08);
 }
 
-.tool-group-icon {
-  font-size: 0.875rem;
-  flex-shrink: 0;
-}
+.tool-group-icon { font-size: 0.875rem; flex-shrink: 0; }
 
 .tool-group-text {
   flex: 1;
@@ -113,30 +115,55 @@ const hasError = computed(() => props.tools.some(t => t.status === 'error'))
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
+.running .tool-group-text { color: var(--accent-color); }
+.has-error .tool-group-text { color: var(--error); }
+
 .tool-group-spinner {
-  width: 10px;
-  height: 10px;
-  border: 1.5px solid var(--accent-color, #3b82f6);
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--accent-color);
   border-top-color: transparent;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
   flex-shrink: 0;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.tool-status-icon {
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tool-status-icon.done {
+  color: var(--success, #4ac078);
+  background: var(--success-bg);
+}
+
+.tool-status-icon.error {
+  color: var(--error);
+  background: var(--error-bg);
 }
 
 .tool-group-chevron {
   font-size: 0.625rem;
-  opacity: 0.5;
+  opacity: 0.4;
   flex-shrink: 0;
 }
 
 .tool-group-body {
-  border-top: 1px solid var(--border-color, #2a2a3e);
+  border-top: 1px solid var(--border-color);
   padding: 2px 0;
 }
 </style>
