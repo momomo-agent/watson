@@ -226,7 +226,7 @@ function formatAttSize(bytes: number): string {
 .message-item {
   display: flex;
   gap: 12px;
-  padding: 10px 24px;
+  padding: 6px 24px;
   transition: background 0.12s;
 }
 

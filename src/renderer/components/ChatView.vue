@@ -256,9 +256,8 @@ function prefillInput(text: string) {
 }
 
 .input-wrapper {
-  padding: 8px 16px 12px;
+  padding: 0;
   background: var(--bg-primary);
-  border-top: 1px solid var(--border-color);
 }
 
 .setup-hint {
