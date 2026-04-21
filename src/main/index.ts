@@ -27,7 +27,7 @@ import { ToolRunner } from './infrastructure/tool-runner'
 import { loadConfig } from './infrastructure/config'
 import { SkillManager } from './domain/skill-manager'
 import { configureAgentic } from './infrastructure/claw-bridge'
-import { initRegistry, getCurrentWorkspace } from './infrastructure/workspace-registry'
+import { initRegistry, getCurrentWorkspace, addWorkspace } from './infrastructure/workspace-registry'
 import { closeAll as closeAllDbs } from './infrastructure/workspace-db'
 import { closeDb as closeMemoryDb } from './infrastructure/memory-index'
 import { sessionBus } from './infrastructure/session-bus'
@@ -46,6 +46,11 @@ let proactiveEngine: ProactiveEngine | null = null
 function createWindow() {
   // Initialize workspace registry
   initRegistry()
+
+  // Auto-register cwd as workspace if none exist
+  if (!getCurrentWorkspace()) {
+    addWorkspace(process.cwd())
+  }
 
   mainWindow = new BrowserWindow({
     width: 1200,

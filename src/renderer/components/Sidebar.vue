@@ -20,12 +20,8 @@ function handleSettingsClose() {
 }
 defineExpose({ openSettings })
 
-// Hide empty "New Chat" sessions (except current)
-const visibleSessions = computed(() =>
-  sessions.value.filter(s =>
-    s.id === currentSessionId.value || s.title !== 'New Chat' || s.lastMessage
-  )
-)
+// Show all sessions — current session must always be visible
+const visibleSessions = computed(() => sessions.value)
 
 onMounted(() => {
   loadSessions()
