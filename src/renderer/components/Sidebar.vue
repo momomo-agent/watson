@@ -12,6 +12,9 @@ const showSettings = ref(false)
 const renaming = ref<string | null>(null)
 const renameText = ref('')
 
+const openSettings = () => { showSettings.value = true }
+defineExpose({ openSettings })
+
 // Hide empty "New Chat" sessions (except current)
 const visibleSessions = computed(() =>
   sessions.value.filter(s =>

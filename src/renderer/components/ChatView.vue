@@ -5,22 +5,30 @@
  * Composes: MessageList + ChatInput + StatusIndicator
  * Manages session lifecycle and message routing.
  */
-import { ref, watch, computed, shallowRef, watchEffect, useTemplateRef } from 'vue'
+import { ref, watch, computed, shallowRef, watchEffect, useTemplateRef, onMounted } from 'vue'
 import { useChatSession } from '../composables/useChatSession'
 import { useSession } from '../composables/useSession'
 import { useUnread } from '../composables/useUnread'
 import { useWorkspace } from '../composables/useWorkspace'
 import { speak, isVoiceEnabled } from '../infrastructure/voice'
+import { backend } from '../infrastructure/backend'
 import type { MessageAttachment } from '../../shared/chat-types'
 import MessageList from './chat/MessageList.vue'
 import ChatInput from './ChatInput.vue'
 import StatusIndicator from './StatusIndicator.vue'
 
 const { currentSessionId, updateSessionMessage, renameSession } = useSession()
+const emit = defineEmits<{ openSettings: [] }>()  
 const { clearUnread } = useUnread()
 const { currentWorkspace } = useWorkspace()
 const workspacePath = computed(() => currentWorkspace.value?.path ?? '/tmp')
 const sessionId = computed(() => currentSessionId.value || 'main')
+const needsSetup = ref(false)
+
+onMounted(async () => {
+  const config = await backend.invoke('settings:load')
+  needsSetup.value = !config?.providers?.length || !config.providers.some((p: any) => p.apiKey)
+})
 
 // Reactive chat session — recreated when sessionId changes
 const chatSession = shallowRef(useChatSession(sessionId.value))
@@ -108,18 +116,26 @@ defineExpose({ prefillInput })
         <div class="empty-state">
           <div class="empty-logo">W</div>
           <p>Watson</p>
-          <div class="quick-actions">
-            <button
-              v-for="action in quickActions"
-              :key="action.title"
-              class="quick-action"
-              @click="handleQuickAction(action)"
-            >
-              <span class="qa-icon">{{ action.icon }}</span>
-              <span class="qa-title">{{ action.title }}</span>
-              <span class="qa-desc">{{ action.desc }}</span>
+          <template v-if="needsSetup">
+            <span class="setup-hint">开始之前，需要配置 API Key</span>
+            <button class="setup-btn" @click="emit('openSettings')">
+              打开设置
             </button>
-          </div>
+          </template>
+          <template v-else>
+            <div class="quick-actions">
+              <button
+                v-for="action in quickActions"
+                :key="action.title"
+                class="quick-action"
+                @click="handleQuickAction(action)"
+              >
+                <span class="qa-icon">{{ action.icon }}</span>
+                <span class="qa-title">{{ action.title }}</span>
+                <span class="qa-desc">{{ action.desc }}</span>
+              </button>
+            </div>
+          </template>
         </div>
       </template>
     </MessageList>
@@ -239,4 +255,24 @@ defineExpose({ prefillInput })
   background: var(--bg-primary);
   border-top: 1px solid var(--border-color);
 }
+
+.setup-hint {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.setup-btn {
+  padding: 0.625rem 1.5rem;
+  background: var(--accent-color);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.setup-btn:hover { opacity: 0.85; }
 </style>

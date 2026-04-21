@@ -13,6 +13,11 @@ const config = (window as any).__watsonConfig
 if (config) initVoice(config)
 
 const chatViewRef = ref<any>(null)
+const sidebarRef = ref<any>(null)
+
+function handleOpenSettings() {
+  sidebarRef.value?.openSettings()
+}
 
 function handleProactiveAct(context: Record<string, any>) {
   const reason = context.reason as string
@@ -28,8 +33,8 @@ function handleProactiveAct(context: Record<string, any>) {
 
 <template>
   <div class="app">
-    <Sidebar />
-    <ChatView ref="chatViewRef" />
+    <Sidebar ref="sidebarRef" />
+    <ChatView ref="chatViewRef" @open-settings="handleOpenSettings" />
     <div class="sense-wrapper">
       <SenseIndicator />
     </div>
