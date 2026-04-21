@@ -38,23 +38,7 @@ const DEFAULT_AGENTS: AgentConfig[] = [
     name: 'Watson',
     description: 'General-purpose assistant',
     avatar: '🤖',
-    color: '#3b82f6',
-  },
-  {
-    id: 'coder',
-    name: 'Coder',
-    description: 'Specialized in coding tasks',
-    avatar: '👨‍💻',
-    color: '#10b981',
-    systemPrompt: 'You are a coding specialist. Focus on writing clean, efficient code.',
-  },
-  {
-    id: 'researcher',
-    name: 'Researcher',
-    description: 'Specialized in research and analysis',
-    avatar: '🔬',
-    color: '#8b5cf6',
-    systemPrompt: 'You are a research specialist. Focus on thorough analysis and fact-checking.',
+    color: '#e8a44a',
   },
 ]
 
