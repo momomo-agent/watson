@@ -37,8 +37,8 @@ const isError = computed(() => props.message.status === 'error')
 const displayName = computed(() => {
   if (props.senderName) return props.senderName
   if (props.message.senderName) return props.message.senderName
-  if (isUser.value) return 'You'
-  return 'Assistant'
+  if (isUser.value) return ''
+  return 'Watson'
 })
 
 const avatarText = computed(() => {
@@ -125,8 +125,8 @@ function formatAttSize(bytes: number): string {
 
     <!-- Body -->
     <div class="msg-body">
-      <!-- Header: name + delegate badge + status + time -->
-      <div class="msg-header">
+      <!-- Header: name + delegate badge + status + time (hide for user) -->
+      <div v-if="!isUser" class="msg-header">
         <span class="msg-name" :class="{ 'name-user': isUser, 'name-delegate': isDelegate }">
           {{ displayName }}
         </span>

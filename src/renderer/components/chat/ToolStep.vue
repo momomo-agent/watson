@@ -41,7 +41,8 @@ const outputPreview = computed(() => {
     <span class="tool-icon">{{ icon }}</span>
     <span class="tool-name">{{ displayName }}</span>
     <span v-if="tool.status === 'running'" class="tool-spinner" />
-    <span v-if="tool.status === 'error'" class="tool-error-badge">✕</span>
+    <span v-else-if="tool.status === 'error'" class="tool-status-dot error">●</span>
+    <span v-else-if="tool.status === 'complete'" class="tool-status-dot done">✓</span>
     <span v-if="tool.status === 'complete' && duration" class="tool-duration">{{ duration }}</span>
 
     <div v-if="expanded && outputPreview" class="tool-output">
@@ -95,11 +96,13 @@ const outputPreview = computed(() => {
   to { transform: rotate(360deg); }
 }
 
-.tool-error-badge {
-  color: var(--error, #ef4444);
-  font-size: 0.75rem;
-  font-weight: 600;
+.tool-status-dot {
+  font-size: 0.5rem;
+  flex-shrink: 0;
 }
+
+.tool-status-dot.done { color: var(--success, #4ac078); }
+.tool-status-dot.error { color: var(--error, #ef4444); }
 
 .tool-duration {
   font-size: 0.6875rem;

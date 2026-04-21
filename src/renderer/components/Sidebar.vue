@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useSession } from '../composables/useSession'
 import { useWorkspace } from '../composables/useWorkspace'
 import { useUnread } from '../composables/useUnread'
@@ -11,6 +11,13 @@ const { getCount, clearUnread } = useUnread()
 const showSettings = ref(false)
 const renaming = ref<string | null>(null)
 const renameText = ref('')
+
+// Hide empty "New Chat" sessions (except current)
+const visibleSessions = computed(() =>
+  sessions.value.filter(s =>
+    s.id === currentSessionId.value || s.title !== 'New Chat' || s.lastMessage
+  )
+)
 
 onMounted(() => {
   loadSessions()
@@ -71,7 +78,7 @@ const formatTime = (ts: number) => {
 
     <div class="session-list">
       <div
-        v-for="session in sessions"
+        v-for="session in visibleSessions"
         :key="session.id"
         @click="handleSwitch(session.id)"
         class="session-item"
