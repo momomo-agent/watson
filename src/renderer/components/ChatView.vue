@@ -25,10 +25,16 @@ const workspacePath = computed(() => currentWorkspace.value?.path ?? '/tmp')
 const sessionId = computed(() => currentSessionId.value || 'main')
 const needsSetup = ref(false)
 
-onMounted(async () => {
+async function checkSetup() {
   const config = await backend.invoke('settings:load')
-  needsSetup.value = !config?.providers?.length || !config.providers.some((p: any) => p.apiKey)
-})
+  const hasProviders = config?.providers?.length && config.providers.some((p: any) => p.apiKey)
+  const hasLegacy = config?.apiKey
+  needsSetup.value = !hasProviders && !hasLegacy
+}
+
+onMounted(checkSetup)
+
+defineExpose({ checkSetup, prefillInput })
 
 // Reactive chat session — recreated when sessionId changes
 const chatSession = shallowRef(useChatSession(sessionId.value))
@@ -101,7 +107,6 @@ function prefillInput(text: string) {
   chatInputRef.value?.prefill(text)
 }
 
-defineExpose({ prefillInput })
 </script>
 
 <template>

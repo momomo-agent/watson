@@ -13,6 +13,11 @@ const renaming = ref<string | null>(null)
 const renameText = ref('')
 
 const openSettings = () => { showSettings.value = true }
+const sidebarEmit = defineEmits<{ settingsClosed: [] }>()
+function handleSettingsClose() {
+  showSettings.value = false
+  sidebarEmit('settingsClosed')
+}
 defineExpose({ openSettings })
 
 // Hide empty "New Chat" sessions (except current)
@@ -128,7 +133,7 @@ Settings
 </button>
     </div>
 
-    <SettingsPanel v-if="showSettings" @close="showSettings = false" />
+    <SettingsPanel v-if="showSettings" @close="handleSettingsClose" />
   </div>
 </template>
 

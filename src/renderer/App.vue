@@ -19,6 +19,10 @@ function handleOpenSettings() {
   sidebarRef.value?.openSettings()
 }
 
+function handleSettingsClosed() {
+  chatViewRef.value?.checkSetup()
+}
+
 function handleProactiveAct(context: Record<string, any>) {
   const reason = context.reason as string
   let text = ''
@@ -33,7 +37,7 @@ function handleProactiveAct(context: Record<string, any>) {
 
 <template>
   <div class="app">
-    <Sidebar ref="sidebarRef" />
+    <Sidebar ref="sidebarRef" @settings-closed="handleSettingsClosed" />
     <ChatView ref="chatViewRef" @open-settings="handleOpenSettings" />
     <div class="sense-wrapper">
       <SenseIndicator />
