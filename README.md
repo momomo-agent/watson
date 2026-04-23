@@ -1,101 +1,44 @@
 # Watson
 
-AI workspace built with Vue 3 + Electron. Paw 的完全重写版本。
+AI 桌面工作台。本地运行，对话式交互，内置工具系统。
 
-## 技术栈
+## 安装
 
-- **Frontend**: Vue 3 + Composition API + TypeScript
-- **Backend**: Electron + Node.js
-- **Build**: Vite + electron-vite
-- **LLM**: 双 provider（Anthropic + OpenAI）
+下载 [Watson-0.1.0-arm64.dmg](https://github.com/momomo-agent/watson/releases)，拖入 Applications。
 
-## 架构
+> macOS Apple Silicon (M1/M2/M3/M4)。已签名 + 公证。
 
-四层架构：
-1. **UI Layer** - Vue 3 SFC 组件
-2. **Application Layer** - WorkspaceManager + Schedulers
-3. **Domain Layer** - ChatSession + CodingAgentSession + MCPSession
-4. **Infrastructure Layer** - LLMClient + ToolRunner + Storage
+## 配置
 
-## 项目结构
+首次打开后点左下角 Settings，添加 Provider：
 
-```
-watson/
-├── .ai/                    # 开发方法论文件
-│   ├── WHY.md             # 项目愿景
-│   ├── HOW.md             # 技术方案
-│   ├── PLAN.md            # 开发计划
-│   └── specs/             # 功能规格
-├── src/
-│   ├── main/              # Electron 主进程
-│   │   ├── domain/        # 领域层
-│   │   ├── infrastructure/# 基础设施层
-│   │   └── ipc/           # IPC handlers
-│   ├── preload/           # IPC bridge
-│   └── renderer/          # Vue 3 前端
-│       ├── components/    # UI 组件
-│       └── composables/   # Composition API
-├── electron.vite.config.ts
-├── tsconfig.json
-└── package.json
-```
+| Provider | 需要 | 获取 |
+|----------|------|------|
+| Anthropic | API Key | [console.anthropic.com](https://console.anthropic.com/) |
+| OpenAI | API Key | [platform.openai.com](https://platform.openai.com/) |
+
+填好 API Key 后选择模型即可开始对话。
+
+## 功能
+
+- 对话 + Streaming 回复 + Markdown 渲染
+- 8 个内置工具（文件读写、Shell 执行、搜索、屏幕截图等）
+- 多 Session 管理 + 历史持久化
+- MCP Server 支持
+- Cron 定时任务
+- 多 Agent 配置（含 Coding Agent 模式）
+- 亮/暗主题
 
 ## 开发
 
 ```bash
-# 安装依赖
 pnpm install
-
-# 启动开发服务器
 pnpm dev
-
-# 构建
-pnpm build
 ```
 
-## 配置
+## 技术栈
 
-在项目根目录创建 `.watson/config.json`：
-
-```json
-{
-  "provider": "anthropic",
-  "apiKey": "your-api-key",
-  "model": "claude-sonnet-4-20250514"
-}
-```
-
-## 功能状态
-
-### Phase 1: 核心对话 ✅
-- [x] 发送消息
-- [x] LLM streaming 回复
-- [x] Markdown 渲染
-- [x] Cancel/Retry
-- [x] 错误处理
-
-### Phase 2: Workspace 管理 🔄
-- [ ] 多 workspace 支持
-- [ ] HeartbeatScheduler
-- [ ] CronScheduler
-
-### Phase 3: 工具系统 📋
-- [ ] 8 个内置工具
-- [ ] Loop detection
-
-### Phase 4: Coding Agent 📋
-- [ ] AWS Code 集成
-- [ ] Codex 集成
-
-### Phase 5: MCP + 持久化 📋
-- [ ] MCP 协议
-- [ ] SQLite 持久化
-
-## 开发方法论
-
-Watson 严格遵循开发方法论：WHY → HOW → TASTE → DO → REVIEW → GATE
-
-详见 `.ai/` 目录下的文档。
+Electron 41 + Vue 3 + TypeScript + Vite + better-sqlite3
 
 ## License
 
