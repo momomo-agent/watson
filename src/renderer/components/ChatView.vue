@@ -97,13 +97,13 @@ const chatInputRef = ref<any>(null)
 
 const quickActions = [
   { icon: '📁', title: '分析项目', desc: '了解项目结构', text: () => `分析 ${workspacePath.value} 的项目结构，给我一个概览` },
-  { icon: '🖥️', title: '看看屏幕', desc: '截图并分析', text: () => `用 screen_sense 截图，告诉我你看到了什么` },
+  { icon: '🖥️', title: '看看屏幕', desc: '截图并分析', text: () => `截取当前屏幕截图，告诉我你看到了什么` },
   { icon: '💻', title: '写代码', desc: '开始一段代码', text: () => `我需要写一段代码，帮我开始` },
   { icon: '🔍', title: '搜索文件', desc: '在项目里搜索', text: () => `在 ${workspacePath.value} 里搜索` },
 ]
 
 const handleQuickAction = (action: typeof quickActions[0]) => {
-  chatInputRef.value?.prefill(action.text())
+  handleSend(action.text())
 }
 
 /** Called from App.vue when ProactiveToast is acted on */

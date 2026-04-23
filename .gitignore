@@ -7,3 +7,5 @@ dist/
 .watson/
 .env
 .gstack/
+express-api/
+guess_number.py
