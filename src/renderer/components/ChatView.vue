@@ -78,9 +78,13 @@ watch(messages, (msgs) => {
 }, { deep: true })
 
 const handleSend = async (text: string, agentId?: string, attachments?: MessageAttachment[]) => {
-  // Auto-title with first message
+  // Auto-title with first message — use first sentence or first 30 chars
   if (messages.value.length === 0 && sessionId.value) {
-    const title = text.slice(0, 30).trim()
+    const raw = text.trim()
+    // Try first sentence (split on Chinese/English punctuation)
+    const sentenceMatch = raw.match(/^[^。！？.!?\n]+/)
+    let title = sentenceMatch ? sentenceMatch[0].trim() : raw
+    if (title.length > 40) title = title.slice(0, 38) + '…'
     if (title) renameSession(sessionId.value, title)
   }
   await chatSession.value.sendMessage(text, agentId, attachments)
@@ -92,10 +96,10 @@ const handleRetry = (msgId: string) => chatSession.value.retry(msgId)
 const chatInputRef = ref<any>(null)
 
 const quickActions = [
-  { icon: '📁', title: '分析项目', desc: '了解当前项目结构', text: () => `分析 ${workspacePath.value} 的项目结构，给我一个概览` },
-  { icon: '🖥️', title: '看看屏幕', desc: '截图并分析当前内容', text: () => `用 screen_sense 截图，告诉我你看到了什么` },
-  { icon: '💻', title: '写代码', desc: '帮我开始一段代码', text: () => `我需要写一段代码，帮我开始` },
-  { icon: '🔍', title: '搜索文件', desc: '在项目里搜索内容', text: () => `在 ${workspacePath.value} 里搜索` },
+  { icon: '📁', title: '分析项目', desc: '了解项目结构', text: () => `分析 ${workspacePath.value} 的项目结构，给我一个概览` },
+  { icon: '🖥️', title: '看看屏幕', desc: '截图并分析', text: () => `用 screen_sense 截图，告诉我你看到了什么` },
+  { icon: '💻', title: '写代码', desc: '开始一段代码', text: () => `我需要写一段代码，帮我开始` },
+  { icon: '🔍', title: '搜索文件', desc: '在项目里搜索', text: () => `在 ${workspacePath.value} 里搜索` },
 ]
 
 const handleQuickAction = (action: typeof quickActions[0]) => {

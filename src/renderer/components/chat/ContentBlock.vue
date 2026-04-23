@@ -23,8 +23,8 @@ const wireCodeCopy = () => {
       navigator.clipboard.writeText(code).then(() => {
         const textEl = el.querySelector('.copy-text')
         if (textEl) {
-          textEl.textContent = 'Copied!'
-          setTimeout(() => { textEl.textContent = 'Copy' }, 1500)
+          textEl.textContent = '已复制'
+          setTimeout(() => { textEl.textContent = '复制' }, 1500)
         }
       })
     })

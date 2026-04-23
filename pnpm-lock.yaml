@@ -13,10 +13,10 @@ importers:
         version: 1.29.0(zod@4.3.6)
       agentic:
         specifier: file:../agentic/packages/agentic
-        version: file:../agentic/packages/agentic(agentic-claw@file:../agentic/packages/claw(agentic-core@file:../agentic/packages/core)(agentic-memory@file:../agentic/packages/memory))(agentic-core@file:../agentic/packages/core)(agentic-memory@file:../agentic/packages/memory)
+        version: file:../agentic/packages/agentic
       agentic-claw:
         specifier: file:../agentic/packages/claw
-        version: file:../agentic/packages/claw(agentic-core@file:../agentic/packages/core)(agentic-memory@file:../agentic/packages/memory)
+        version: file:../agentic/packages/claw
       agentic-core:
         specifier: file:../agentic/packages/core
         version: file:../agentic/packages/core
@@ -718,37 +718,6 @@ packages:
 
   agentic-claw@file:../agentic/packages/claw:
     resolution: {directory: ../agentic/packages/claw, type: directory}
-    peerDependencies:
-      agentic-act: '*'
-      agentic-core: workspace:*
-      agentic-embed: '*'
-      agentic-filesystem: '*'
-      agentic-memory: workspace:*
-      agentic-render: '*'
-      agentic-sense: '*'
-      agentic-shell: '*'
-      agentic-spatial: '*'
-      agentic-store: '*'
-      agentic-voice: '*'
-    peerDependenciesMeta:
-      agentic-act:
-        optional: true
-      agentic-embed:
-        optional: true
-      agentic-filesystem:
-        optional: true
-      agentic-render:
-        optional: true
-      agentic-sense:
-        optional: true
-      agentic-shell:
-        optional: true
-      agentic-spatial:
-        optional: true
-      agentic-store:
-        optional: true
-      agentic-voice:
-        optional: true
 
   agentic-core@file:../agentic/packages/core:
     resolution: {directory: ../agentic/packages/core, type: directory}
@@ -758,40 +727,6 @@ packages:
 
   agentic@file:../agentic/packages/agentic:
     resolution: {directory: ../agentic/packages/agentic, type: directory}
-    peerDependencies:
-      agentic-act: '*'
-      agentic-claw: '*'
-      agentic-core: workspace:*
-      agentic-embed: '*'
-      agentic-filesystem: '*'
-      agentic-memory: workspace:*
-      agentic-render: '*'
-      agentic-sense: '*'
-      agentic-shell: '*'
-      agentic-spatial: '*'
-      agentic-store: '*'
-      agentic-voice: '*'
-    peerDependenciesMeta:
-      agentic-act:
-        optional: true
-      agentic-claw:
-        optional: true
-      agentic-embed:
-        optional: true
-      agentic-filesystem:
-        optional: true
-      agentic-render:
-        optional: true
-      agentic-sense:
-        optional: true
-      agentic-shell:
-        optional: true
-      agentic-spatial:
-        optional: true
-      agentic-store:
-        optional: true
-      agentic-voice:
-        optional: true
 
   agentkeepalive@4.6.0:
     resolution: {integrity: sha512-kja8j7PjmncONqaTsB8fQ+wE2mSU2DJ9D4XKoJ5PFWIdRMa6SLSN1ff4mOr4jCbfRSsxR4keIiySJU0N9T5hIQ==}
@@ -3444,21 +3379,13 @@ snapshots:
 
   agent-base@9.0.0: {}
 
-  agentic-claw@file:../agentic/packages/claw(agentic-core@file:../agentic/packages/core)(agentic-memory@file:../agentic/packages/memory):
-    dependencies:
-      agentic-core: file:../agentic/packages/core
-      agentic-memory: file:../agentic/packages/memory
+  agentic-claw@file:../agentic/packages/claw: {}
 
   agentic-core@file:../agentic/packages/core: {}
 
   agentic-memory@file:../agentic/packages/memory: {}
 
-  agentic@file:../agentic/packages/agentic(agentic-claw@file:../agentic/packages/claw(agentic-core@file:../agentic/packages/core)(agentic-memory@file:../agentic/packages/memory))(agentic-core@file:../agentic/packages/core)(agentic-memory@file:../agentic/packages/memory):
-    dependencies:
-      agentic-core: file:../agentic/packages/core
-      agentic-memory: file:../agentic/packages/memory
-    optionalDependencies:
-      agentic-claw: file:../agentic/packages/claw(agentic-core@file:../agentic/packages/core)(agentic-memory@file:../agentic/packages/memory)
+  agentic@file:../agentic/packages/agentic: {}
 
   agentkeepalive@4.6.0:
     dependencies:

@@ -21,10 +21,15 @@ const props = defineProps<{
 const expanded = ref(false)
 const toggle = () => { expanded.value = !expanded.value }
 
-// Auto-expand while tools are running, collapse when done
-watch(() => props.tools.map(t => t.status), (statuses) => {
+// Auto-expand while tools are running, auto-collapse when all done
+watch(() => props.tools.map(t => t.status), (statuses, oldStatuses) => {
   const hasActive = statuses.some(s => s === 'pending' || s === 'running')
-  if (hasActive) expanded.value = true
+  if (hasActive) {
+    expanded.value = true
+  } else if (oldStatuses?.some(s => s === 'pending' || s === 'running')) {
+    // Was running, now all done → auto-collapse
+    expanded.value = false
+  }
 }, { immediate: true })
 
 const headerText = computed(() => {

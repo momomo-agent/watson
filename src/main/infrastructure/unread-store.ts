@@ -26,12 +26,20 @@ export class UnreadStore {
   }
 
   private init() {
-    // Add unread_count column to sessions table if it doesn't exist
+    // Ensure sessions table exists
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        unread_count INTEGER DEFAULT 0
+      )
+    `)
+
+    // Add unread_count column if migrating from older schema
     try {
       this.db.exec(`ALTER TABLE sessions ADD COLUMN unread_count INTEGER DEFAULT 0`)
     } catch (e: any) {
       if (!e.message?.includes('duplicate column')) {
-        console.warn('[unread-store] migration warning:', e.message)
+        // Ignore — column already exists or table was just created with it
       }
     }
 
