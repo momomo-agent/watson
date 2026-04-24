@@ -17,6 +17,9 @@ importers:
       agentic-claw:
         specifier: file:../agentic/packages/claw
         version: file:../agentic/packages/claw
+      agentic-conductor:
+        specifier: link:../../agentic/packages/conductor
+        version: link:../../agentic/packages/conductor
       agentic-core:
         specifier: file:../agentic/packages/core
         version: file:../agentic/packages/core

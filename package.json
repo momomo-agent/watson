@@ -40,6 +40,7 @@
     "agentic-memory": "file:../agentic/packages/memory",
     "better-sqlite3": "^12.8.0",
     "chokidar": "^5.0.0",
+    "agentic-conductor": "link:../../agentic/packages/conductor",
     "highlight.js": "^11.11.1",
     "https-proxy-agent": "^9.0.0",
     "js-yaml": "^4.1.1",

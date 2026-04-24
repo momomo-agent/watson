@@ -18,6 +18,8 @@
 
 // @ts-ignore — JS module without type declarations
 import { ai } from 'agentic'
+// @ts-ignore — JS module without type declarations
+import { createConductor } from '../../../../agentic/packages/conductor/src/conductor.js'
 import type { StreamChunk, LLMStreamFn } from '../domain/chat-session'
 import { ToolRunner } from './tool-runner'
 import { BUILTIN_TOOLS } from './tools'
@@ -231,6 +233,9 @@ export function createClawLLMStream(
     return claw
   }
 
+  // Conductor instance per LLMStreamFn (shared across calls in same session)
+  let conductor: any = null
+
   return async function* clawStream(
     messages: Array<{ role: string; content: any }>,
     signal: AbortSignal,
@@ -253,35 +258,68 @@ export function createClawLLMStream(
         ? lastUserMsg.content.find((c: any) => c.type === 'text')?.text || ''
         : ''
 
-    const gen = clawInst.chat(prompt, { signal })
-
-    for await (const event of gen) {
-      switch (event.type) {
-        case 'text_delta':
-          yield { type: 'text', text: event.text }
-          break
-        case 'tool_use':
-          yield { type: 'tool_use', tool: { id: event.id, name: event.name, input: event.input } }
-          break
-        case 'tool_result':
-          yield { type: 'tool_result' as any, tool: { id: event.id, name: event.name, output: event.output } }
-          break
-        case 'tool_error':
-          yield { type: 'tool_error' as any, tool: { id: event.id, name: event.name, error: event.error } }
-          break
-        case 'warning':
-          yield { type: 'text', text: `\n⚠️ ${event.message}\n` }
-          break
-        case 'done':
-          yield { type: 'done', stopReason: event.stopReason || 'end_turn' }
-          break
-        case 'error':
-          yield { type: 'error', error: event.error || event.message }
-          break
-        case 'timing':
-          yield { type: 'timing', round: event.round, phase: event.phase, ms: event.ms, ttft: event.ttft }
-          break
+    // Create conductor lazily, wrapping claw as ai.stream
+    if (!conductor) {
+      const clawAI = {
+        async* stream(msgs: any[], opts: any): AsyncGenerator<StreamChunk> {
+          const clawInstance = getOrCreateClaw(agentConfig)
+          const lastMsg = msgs[msgs.length - 1]
+          const text = typeof lastMsg?.content === 'string'
+            ? lastMsg.content
+            : Array.isArray(lastMsg?.content)
+              ? lastMsg.content.find((c: any) => c.type === 'text')?.text || ''
+              : ''
+          const gen = clawInstance.chat(text, { signal: opts?.signal || signal })
+          for await (const event of gen) {
+            switch (event.type) {
+              case 'text_delta':
+                yield { type: 'text', text: event.text }
+                break
+              case 'tool_use':
+                yield { type: 'tool_use', tool: { id: event.id, name: event.name, input: event.input } }
+                break
+              case 'tool_result':
+                yield { type: 'tool_result' as any, tool: { id: event.id, name: event.name, output: event.output } }
+                break
+              case 'tool_error':
+                yield { type: 'tool_error' as any, tool: { id: event.id, name: event.name, error: event.error } }
+                break
+              case 'done':
+                yield { type: 'done', stopReason: event.stopReason || 'end_turn' }
+                break
+              case 'error':
+                yield { type: 'error', error: event.error || event.message }
+                break
+              case 'timing':
+                yield { type: 'timing', round: event.round, phase: event.phase, ms: event.ms, ttft: event.ttft }
+                break
+            }
+          }
+        },
       }
+
+      // Get tool definitions for conductor capability list
+      const toolDefs = [...registry.getLoadedTools()].map(t => ({
+        name: t.name,
+        description: t.description || '',
+      }))
+
+      conductor = createConductor({
+        ai: clawAI,
+        tools: toolDefs,
+        strategy: 'dispatch',
+        intentMode: 'tools',
+        onWorkerStart: async (task: string, abort: any, opts: any) => {
+          // TODO: implement worker execution (Phase 2)
+          console.log('[conductor] worker started:', task)
+        },
+      })
+      console.log('[claw-bridge] conductor created — strategy: dispatch, intentMode: tools')
+    }
+
+    // Yield all chunks from conductor
+    for await (const chunk of conductor.chat(prompt)) {
+      yield chunk as StreamChunk
     }
   }
 }
