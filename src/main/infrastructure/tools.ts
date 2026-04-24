@@ -4,7 +4,7 @@ import type { ToolDef } from '../domain/tool-registry'
  * Watson built-in tools.
  *
  * core: true → always loaded, full schema every turn
- * shouldDefer: true → only name+hint until tool_search loads it
+ * core: true → only name+hint until tool_search loads it
  * (default: core for essential tools, deferred for specialized ones)
  */
 export const BUILTIN_TOOLS: ToolDef[] = [
@@ -87,7 +87,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
     tags: ['ui'],
   },
 
-  // ── Deferred: loaded on demand ───────────────────────────────
+  // ── Previously deferred, now core (claw doesn't support dynamic tool registration) ──
   {
     name: 'process',
     description: 'Manage background processes: list, poll, log, kill.',
@@ -102,7 +102,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       },
       required: ['action']
     },
-    shouldDefer: true,
+    core: true,
     tags: ['shell', 'process', 'background'],
   },
   {
@@ -117,7 +117,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       },
       required: ['url']
     },
-    shouldDefer: true,
+    core: true,
     tags: ['web', 'fetch', 'url'],
   },
   {
@@ -132,7 +132,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       },
       required: ['query']
     },
-    shouldDefer: true,
+    core: true,
     tags: ['web', 'search'],
   },
   {
@@ -147,7 +147,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       },
       required: ['code']
     },
-    shouldDefer: true,
+    core: true,
     tags: ['code', 'exec', 'run'],
   },
   {
@@ -162,7 +162,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       },
       required: ['message']
     },
-    shouldDefer: true,
+    core: true,
     tags: ['ui', 'notification'],
   },
   {
@@ -173,7 +173,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       type: 'object',
       properties: {}
     },
-    shouldDefer: true,
+    core: true,
     tags: ['screen', 'sense', 'vision'],
   },
   {
@@ -188,7 +188,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       },
       required: ['task']
     },
-    shouldDefer: true,
+    core: true,
     tags: ['code', 'agent', 'delegate'],
   },
   {
@@ -199,7 +199,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       type: 'object',
       properties: {}
     },
-    shouldDefer: true,
+    core: true,
     tags: ['skill'],
   },
   {
@@ -213,7 +213,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       },
       required: ['name']
     },
-    shouldDefer: true,
+    core: true,
     tags: ['skill'],
   },
   {
@@ -227,7 +227,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       },
       required: ['name']
     },
-    shouldDefer: true,
+    core: true,
     tags: ['skill'],
   },
   {
@@ -242,7 +242,7 @@ export const BUILTIN_TOOLS: ToolDef[] = [
       },
       required: ['name']
     },
-    shouldDefer: true,
+    core: true,
     tags: ['skill', 'exec'],
   },
 ]

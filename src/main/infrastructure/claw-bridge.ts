@@ -218,7 +218,10 @@ export function createClawLLMStream(
     console.log('[claw-bridge] creating claw — model:', model, `tools: ${tools.length} loaded, ${deferredList.length} deferred`)
     claw = agenticInstance.createClaw({
       tools, systemPrompt, stream: true, providers,
-      conductorModule: (globalThis as any).AgenticConductor || undefined,
+      // conductorModule disabled — conductor's dispatch strategy adds latency
+      // for simple requests without benefit. Re-enable when conductor supports
+      // automatic single/dispatch switching.
+      // conductorModule: (globalThis as any).AgenticConductor || undefined,
     })
     lastConfigHash = configHash
     lastToolHash = toolHash
