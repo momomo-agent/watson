@@ -34,7 +34,8 @@ export default defineConfig(({ mode }) => ({
       },
     },
     define: mode === 'development' ? {
-      'process.env.VITE_DEV_SERVER_URL': '"http://localhost:5173"'
+      // Let electron-vite inject the actual dev server URL at runtime
+      // (hardcoding port breaks when 5173 is occupied)
     } : {},
   },
   preload: {

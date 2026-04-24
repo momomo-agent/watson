@@ -91,17 +91,22 @@ export class Workspace {
 
       // Load persisted messages from per-workspace DB
       const saved = db.loadMessages(this.path, sessionId)
-      session.messages = saved.map(m => ({
+      session.messages = saved.map(m => {
+        // Recover interrupted messages: streaming/pending/tool_calling → cancelled on restart
+        const status = ['streaming', 'pending', 'tool_calling'].includes(m.status)
+          ? 'cancelled'
+          : m.status
+        return {
         id: m.id,
         role: m.role as 'user' | 'assistant',
         content: m.content,
         timestamp: m.timestamp,
-        status: m.status as any,
+        status: status as any,
         error: m.error,
         toolCalls: m.toolCalls,
         agentId: m.agentId,
         timing: m.metadata?.timing,
-      }))
+      }})
 
       // Ensure session record exists
       if (!db.getSession(this.path, sessionId)) {
