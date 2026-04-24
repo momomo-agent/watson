@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => ({
       outDir: 'dist-electron/main',
       rollupOptions: {
         input: resolve('src/main/index.ts'),
-        external: ['electron', 'better-sqlite3'],
+        external: ['electron', 'better-sqlite3', 'agentic-conductor'],
         plugins: [dirnamePolyfillPlugin()],
       },
     },

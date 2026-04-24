@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import Sidebar from './components/Sidebar.vue'
 import ChatView from './components/ChatView.vue'
+import IntentsPanel from './components/IntentsPanel.vue'
 import SenseIndicator from './components/SenseIndicator.vue'
 import ProactiveToast from './components/ProactiveToast.vue'
 import { useTheme } from './composables/useTheme'
+import { useSession } from './composables/useSession'
 import { initVoice } from './infrastructure/voice'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 useTheme()
+const { currentSessionId } = useSession()
+const sessionId = computed(() => currentSessionId.value || 'main')
 
 const config = (window as any).__watsonConfig
 if (config) initVoice(config)
@@ -39,6 +43,7 @@ function handleProactiveAct(context: Record<string, any>) {
   <div class="app">
     <Sidebar ref="sidebarRef" @settings-closed="handleSettingsClosed" />
     <ChatView ref="chatViewRef" @open-settings="handleOpenSettings" />
+    <IntentsPanel :session-id="sessionId" />
     <div class="sense-wrapper">
       <SenseIndicator />
     </div>

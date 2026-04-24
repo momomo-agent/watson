@@ -51,6 +51,8 @@ export interface StreamChunk {
   ms?: number
   ttft?: number
   cacheHit?: boolean
+  // Conductor intents (from claw's internal conductor)
+  intents?: Array<{ id: number; goal: string; status: string; priority?: number }>
 }
 
 export type LLMStreamFn = (
@@ -69,6 +71,7 @@ export class ChatSession extends EventEmitter {
   private statusText: string | null = null
   private senseContext: SenseContext | null = null
   private lastInjectedSenseTimestamp: number = 0
+  lastIntents: Array<{ id: number; goal: string; status: string; priority?: number }> = []
 
   // Per-session message queue — ensures serial processing
   private _queue: Array<() => Promise<void>> = []
@@ -350,6 +353,11 @@ export class ChatSession extends EventEmitter {
             // Capture total time
             if (!message.timing) message.timing = {}
             message.timing.totalMs = Date.now() - startTime
+            // Capture conductor intents
+            if (chunk.intents?.length) {
+              this.lastIntents = chunk.intents
+              this.emit('intents', chunk.intents)
+            }
             this.finishMessage(message, 'complete')
             return
           }

@@ -8,6 +8,30 @@ try {
   const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || 'http://127.0.0.1:7890'
   setGlobalDispatcher(new ProxyAgent(proxy))
 } catch {}
+
+// Inject agentic-conductor into globalThis so claw's optionalLoad finds it
+// (pnpm strict mode prevents require('agentic-conductor') from agentic's context)
+try {
+  // Try multiple resolution paths
+  let conductorMod: any = null
+  const tryPaths = [
+    // Absolute path to conductor dist (most reliable)
+    '/Users/kenefe/LOCAL/momo-agent/projects/agentic/packages/conductor/dist/agentic-conductor.cjs',
+    // Relative from watson project root
+    require('path').resolve(process.cwd(), 'node_modules/agentic-conductor/dist/agentic-conductor.cjs'),
+  ]
+  for (const p of tryPaths) {
+    try { conductorMod = require(p); break } catch {}
+  }
+  if (conductorMod) {
+    ;(globalThis as any).AgenticConductor = conductorMod
+    console.log('[watson] agentic-conductor loaded')
+  } else {
+    console.warn('[watson] agentic-conductor not found in any path')
+  }
+} catch (e) {
+  console.warn('[watson] agentic-conductor injection failed:', (e as any).message)
+}
 import { join } from 'path'
 import { registerChatHandlers, getWorkspaceManager } from './application/chat-handlers'
 import { registerWorkspaceHandlers } from './application/workspace-handlers'

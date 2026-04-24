@@ -120,6 +120,10 @@ function ensureSessionListener(session: any, sessionId: string, mainWindow: Brow
     }
   }
 
+  session.on('intents', (intents: any[]) => {
+    sessionBus.emit(sessionId, 'intents:update', { sessionId, intents })
+  })
+
   session.on('update', (event?: any) => {
     const messages = session.messages || []
 

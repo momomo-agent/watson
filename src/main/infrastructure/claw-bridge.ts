@@ -216,7 +216,10 @@ export function createClawLLMStream(
     }
 
     console.log('[claw-bridge] creating claw — model:', model, `tools: ${tools.length} loaded, ${deferredList.length} deferred`)
-    claw = agenticInstance.createClaw({ tools, systemPrompt, stream: true, providers })
+    claw = agenticInstance.createClaw({
+      tools, systemPrompt, stream: true, providers,
+      conductorModule: (globalThis as any).AgenticConductor || undefined,
+    })
     lastConfigHash = configHash
     lastToolHash = toolHash
 
@@ -273,7 +276,7 @@ export function createClawLLMStream(
           yield { type: 'text', text: `\n⚠️ ${event.message}\n` }
           break
         case 'done':
-          yield { type: 'done', stopReason: event.stopReason || 'end_turn' }
+          yield { type: 'done', stopReason: event.stopReason || 'end_turn', intents: event.intents || [] }
           break
         case 'error':
           yield { type: 'error', error: event.error || event.message }
