@@ -218,13 +218,27 @@ export function createClawLLMStream(
     console.log('[claw-bridge] creating claw — model:', model, `tools: ${tools.length} loaded, ${deferredList.length} deferred`)
     claw = agenticInstance.createClaw({
       tools, systemPrompt, stream: true, providers,
-      // conductorModule disabled — conductor's dispatch strategy adds latency
-      // for simple requests without benefit. Re-enable when conductor supports
-      // automatic single/dispatch switching.
-      // conductorModule: (globalThis as any).AgenticConductor || undefined,
+      conductorModule: (globalThis as any).AgenticConductor || undefined,
     })
     lastConfigHash = configHash
     lastToolHash = toolHash
+
+    // Listen for conductor worker completion — push results to UI
+    if (claw.conductor) {
+      claw.on('worker_done', (data: any) => {
+        console.log('[claw-bridge] worker done:', data.taskId, data.task?.slice(0, 80))
+        // Emit through sessionBus so renderer can display worker results
+        const { sessionBus } = require('../application/chat-handlers')
+        if (sessionBus) {
+          sessionBus.emit('worker:done', {
+            taskId: data.taskId,
+            task: data.task,
+            result: typeof data.result === 'string' ? data.result : JSON.stringify(data.result),
+          })
+        }
+      })
+      console.log('[claw-bridge] conductor active — worker events wired')
+    }
 
     // Pre-heat connection + prompt cache (fire-and-forget)
     if (claw.warmup) {
