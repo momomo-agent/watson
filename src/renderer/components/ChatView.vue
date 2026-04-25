@@ -118,6 +118,7 @@ function prefillInput(text: string) {
     <MessageList
       :messages="messages"
       :status-text="chatStatusText"
+      :session-id="sessionId"
       @cancel="handleCancel"
       @retry="handleRetry"
     >

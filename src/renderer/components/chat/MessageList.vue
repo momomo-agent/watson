@@ -14,6 +14,7 @@ import MessageItem from './MessageItem.vue'
 const props = defineProps<{
   messages: ChatMessage[]
   statusText?: string
+  sessionId?: string
 }>()
 
 const emit = defineEmits<{
@@ -30,6 +31,15 @@ const handleScroll = () => {
   const { scrollTop, scrollHeight, clientHeight } = containerRef.value
   userScrolledUp.value = scrollHeight - scrollTop - clientHeight > 80
 }
+
+// Reset scroll state and jump to bottom when session changes
+watch(() => props.sessionId, async () => {
+  userScrolledUp.value = false
+  await nextTick()
+  if (containerRef.value) {
+    containerRef.value.scrollTop = containerRef.value.scrollHeight
+  }
+})
 
 // Auto-scroll to bottom when messages change (unless user scrolled up)
 watch(() => props.messages.length, async () => {
