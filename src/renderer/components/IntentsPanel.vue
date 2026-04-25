@@ -1,10 +1,11 @@
 <template>
-  <div v-if="hasIntents" class="intents-panel">
+  <div class="intents-panel">
     <div class="intents-header">
       <span class="intents-title">Tasks</span>
-      <span class="intents-count">{{ intents.length }}</span>
+      <span v-if="intents.length > 0" class="intents-count">{{ intents.length }}</span>
     </div>
     <div class="intents-list">
+      <div v-if="intents.length === 0" class="intents-empty">暂无任务</div>
       <div
         v-for="intent in intents"
         :key="intent.id"
@@ -73,6 +74,13 @@ function statusLabel(status: string): string {
   border-radius: 10px;
   padding: 1px 7px;
   min-width: 18px;
+  text-align: center;
+}
+
+.intents-empty {
+  padding: 16px 10px;
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
   text-align: center;
 }
 
