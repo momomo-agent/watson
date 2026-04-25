@@ -105,11 +105,6 @@ export function useSession() {
     if (session) {
       session.lastMessage = message
       session.updatedAt = Date.now()
-      const idx = sessions.value.indexOf(session)
-      if (idx > 0) {
-        sessions.value.splice(idx, 1)
-        sessions.value.unshift(session)
-      }
       try {
         await backend.invoke('sessions:touch', { sessionId: id, lastMessage: message })
       } catch (err) {
