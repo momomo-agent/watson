@@ -115,6 +115,7 @@ function prefillInput(text: string) {
 
 <template>
   <div class="chat-view">
+    <div class="drag-bar" />
     <MessageList
       :messages="messages"
       :status-text="chatStatusText"
@@ -172,6 +173,12 @@ function prefillInput(text: string) {
   height: 100vh;
   flex: 1;
   background: var(--bg-primary);
+}
+
+.drag-bar {
+  height: 40px;
+  flex-shrink: 0;
+  -webkit-app-region: drag;
 }
 
 .empty-state {
