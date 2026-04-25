@@ -2,6 +2,7 @@ import { backend } from '../infrastructure/backend'
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useTheme } from '../composables/useTheme'
+import { useWorkspace } from '../composables/useWorkspace'
 
 interface McpServer {
   command: string
@@ -50,6 +51,7 @@ const emit = defineEmits<{
 }>()
 
 const { theme } = useTheme()
+const { currentWorkspace } = useWorkspace()
 
 const config = ref<Config>({
   providers: [],
@@ -70,7 +72,7 @@ const newCronId = ref('')
 const newCronSchedule = ref('')
 
 onMounted(async () => {
-  const loaded = await backend.invoke("settings:load")
+  const loaded = await backend.invoke("settings:load", { workspacePath: currentWorkspace.value?.path })
   if (loaded) {
     config.value = loaded
     // Ensure providers array exists

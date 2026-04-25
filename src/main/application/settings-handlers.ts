@@ -3,31 +3,19 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { join, dirname } from 'path'
 import type { Config } from '../infrastructure/config'
 
-/** Resolve config path: workspace .watson/config.json > userData config.json */
-function resolveConfigPath(): string {
-  // Check workspace-level first (same as loadConfig in config.ts)
-  const cwd = process.cwd()
-  const workspacePath = join(cwd, '.watson', 'config.json')
-  if (existsSync(workspacePath)) return workspacePath
-
-  // Fall back to app-level
-  return join(app.getPath('userData'), 'config.json')
-}
-
-/** Resolve save path: always write to userData (safe default) */
-function resolveSavePath(): string {
-  return join(app.getPath('userData'), 'config.json')
-}
-
 export function registerSettingsHandlers() {
-  ipcMain.handle('settings:load', async () => {
+  ipcMain.handle('settings:load', async (_, { workspacePath }: { workspacePath?: string } = {}) => {
     try {
-      const configPath = resolveConfigPath()
-      console.log('[Settings] Loading from:', configPath, 'exists:', existsSync(configPath))
-      if (existsSync(configPath)) {
-        const content = readFileSync(configPath, 'utf8')
-        return JSON.parse(content) as Config
+      // Try workspace-level first
+      if (workspacePath) {
+        const wsConfig = join(workspacePath, '.watson', 'config.json')
+        console.log('[Settings] Loading from:', wsConfig, 'exists:', existsSync(wsConfig))
+        if (existsSync(wsConfig)) return JSON.parse(readFileSync(wsConfig, 'utf8')) as Config
       }
+      // Fall back to app-level
+      const appConfig = join(app.getPath('userData'), 'config.json')
+      console.log('[Settings] Loading from:', appConfig, 'exists:', existsSync(appConfig))
+      if (existsSync(appConfig)) return JSON.parse(readFileSync(appConfig, 'utf8')) as Config
       return null
     } catch (err) {
       console.error('[Settings] Load failed:', err)
