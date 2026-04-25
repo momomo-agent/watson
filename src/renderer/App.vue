@@ -18,6 +18,7 @@ if (config) initVoice(config)
 
 const chatViewRef = ref<any>(null)
 const sidebarRef = ref<any>(null)
+const showIntents = ref(false)
 
 function handleOpenSettings() {
   sidebarRef.value?.openSettings()
@@ -41,9 +42,9 @@ function handleProactiveAct(context: Record<string, any>) {
 
 <template>
   <div class="app">
-    <Sidebar ref="sidebarRef" @settings-closed="handleSettingsClosed" />
+    <Sidebar ref="sidebarRef" @settings-closed="handleSettingsClosed" @toggle-intents="showIntents = !showIntents" />
     <ChatView ref="chatViewRef" @open-settings="handleOpenSettings" />
-    <IntentsPanel :session-id="sessionId" />
+    <IntentsPanel v-if="showIntents" :session-id="sessionId" />
     <div class="sense-wrapper">
       <SenseIndicator />
     </div>

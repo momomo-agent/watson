@@ -13,7 +13,7 @@ const renaming = ref<string | null>(null)
 const renameText = ref('')
 
 const openSettings = () => { showSettings.value = true }
-const sidebarEmit = defineEmits<{ settingsClosed: [] }>()
+const sidebarEmit = defineEmits<{ settingsClosed: [], toggleIntents: [] }>()
 function handleSettingsClose() {
   showSettings.value = false
   sidebarEmit('settingsClosed')
@@ -123,6 +123,10 @@ const formatTime = (ts: number) => {
     </div>
 
     <div class="sidebar-footer">
+      <button @click="sidebarEmit('toggleIntents')" class="settings-btn">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="6" height="6" rx="1"/><rect x="3" y="13" width="6" height="6" rx="1"/><line x1="13" y1="8" x2="21" y2="8"/><line x1="13" y1="16" x2="21" y2="16"/></svg>
+Tasks
+</button>
       <button @click="showSettings = true" class="settings-btn">
 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
 Settings
