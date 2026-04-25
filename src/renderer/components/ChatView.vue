@@ -67,15 +67,15 @@ watch(messages, (newMsgs, oldMsgs) => {
   }
 }, { deep: true })
 
-// Update session's last message preview
-watch(messages, (msgs) => {
-  if (msgs.length > 0 && sessionId.value) {
+// Update session's last message preview (only on new messages, not session switch)
+watch(messages, (msgs, oldMsgs) => {
+  if (msgs.length > 0 && sessionId.value && msgs.length > (oldMsgs?.length ?? 0)) {
     const lastMsg = msgs[msgs.length - 1]
     if (lastMsg.role === 'assistant' && lastMsg.content) {
       updateSessionMessage(sessionId.value, lastMsg.content.slice(0, 100))
     }
   }
-}, { deep: true })
+}, { deep: false })
 
 const handleSend = async (text: string, agentId?: string, attachments?: MessageAttachment[]) => {
   // Auto-title with first message — use first sentence or first 30 chars
