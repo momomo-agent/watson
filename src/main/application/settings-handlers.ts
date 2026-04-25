@@ -23,15 +23,13 @@ export function registerSettingsHandlers() {
     }
   })
 
-  ipcMain.handle('settings:save', async (_, config: Config) => {
+  ipcMain.handle('settings:save', async (_, { config, workspacePath }: { config: Config, workspacePath?: string }) => {
     try {
-      const configPath = resolveSavePath()
-      console.log('[Settings] Saving to:', configPath)
-      console.log('[Settings] Config:', JSON.stringify(config).slice(0, 200))
+      const configPath = workspacePath
+        ? join(workspacePath, '.watson', 'config.json')
+        : join(app.getPath('userData'), 'config.json')
       const dir = dirname(configPath)
-      if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true })
-      }
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
       writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8')
       return true
     } catch (err) {

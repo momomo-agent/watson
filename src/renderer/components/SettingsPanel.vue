@@ -1,8 +1,8 @@
-import { backend } from '../infrastructure/backend'
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useTheme } from '../composables/useTheme'
 import { useWorkspace } from '../composables/useWorkspace'
+import { backend } from '../infrastructure/backend'
 
 interface McpServer {
   command: string
@@ -88,7 +88,7 @@ onMounted(async () => {
 })
 
 const saveConfig = async () => {
-  await backend.invoke("settings:save", config.value)
+  await backend.invoke("settings:save", { config: config.value, workspacePath: currentWorkspace.value?.path })
   emit('close')
 }
 
