@@ -111,7 +111,7 @@ export function useSession() {
         sessions.value.unshift(session)
       }
       try {
-        await backend.invoke('sessions:touch', { sessionId: id })
+        await backend.invoke('sessions:touch', { sessionId: id, lastMessage: message })
       } catch (err) {
         console.error('[useSession] Failed to touch session:', err)
       }

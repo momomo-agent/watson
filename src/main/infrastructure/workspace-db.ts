@@ -64,7 +64,8 @@ function ensureSchema(db: Database.Database): void {
       mode TEXT DEFAULT 'chat',
       status_level TEXT DEFAULT 'idle',
       status_text TEXT DEFAULT '',
-      participants TEXT DEFAULT '[]'
+      participants TEXT DEFAULT '[]',
+      last_message TEXT DEFAULT ''
     )
   `)
   db.exec(`
@@ -83,6 +84,11 @@ function ensureSchema(db: Database.Database): void {
     )
   `)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, timestamp)`)
+  // Migration: add last_message if missing
+  const cols = (db.prepare("PRAGMA table_info(sessions)").all() as any[]).map((c: any) => c.name)
+  if (!cols.includes('last_message')) {
+    db.exec(`ALTER TABLE sessions ADD COLUMN last_message TEXT DEFAULT ''`)
+  }
 }
 
 // ── Sessions ──
@@ -121,6 +127,7 @@ export function listSessions(wsPath: string): SessionRow[] {
     title: row.title,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    lastMessage: row.last_message || '',
     mode: row.mode || 'chat',
     statusLevel: row.status_level || 'idle',
     statusText: row.status_text || '',
@@ -128,8 +135,12 @@ export function listSessions(wsPath: string): SessionRow[] {
   }))
 }
 
-export function touchSession(wsPath: string, id: string): void {
-  getDb(wsPath).prepare('UPDATE sessions SET updated_at = ? WHERE id = ?').run(Date.now(), id)
+export function touchSession(wsPath: string, id: string, lastMessage?: string): void {
+  if (lastMessage !== undefined) {
+    getDb(wsPath).prepare('UPDATE sessions SET updated_at = ?, last_message = ? WHERE id = ?').run(Date.now(), lastMessage, id)
+  } else {
+    getDb(wsPath).prepare('UPDATE sessions SET updated_at = ? WHERE id = ?').run(Date.now(), id)
+  }
 }
 
 export function renameSession(wsPath: string, id: string, title: string): void {

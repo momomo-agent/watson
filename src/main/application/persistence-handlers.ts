@@ -63,7 +63,7 @@ export function registerPersistenceHandlers(window: BrowserWindow) {
     db.renameSession(wsPath(), sessionId, title)
   })
 
-  ipcMain.handle('sessions:touch', (_, { sessionId }) => {
-    db.touchSession(wsPath(), sessionId)
+  ipcMain.handle('sessions:touch', (_, { sessionId, lastMessage }) => {
+    db.touchSession(wsPath(), sessionId, lastMessage)
   })
 }
