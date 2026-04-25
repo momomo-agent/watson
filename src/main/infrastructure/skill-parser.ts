@@ -67,7 +67,7 @@ export function loadSkillMetadata(skillDir: string): SkillMetadata | null {
   const { frontmatter, body } = parseFrontmatter(content);
 
   const metaObj = (frontmatter.metadata && typeof frontmatter.metadata === 'object')
-    ? (frontmatter.metadata.watson || frontmatter.metadata.openclaw || {})
+    ? (frontmatter.metadata.watson || {})
     : {};
 
   const get = (key: string, def?: any) => 

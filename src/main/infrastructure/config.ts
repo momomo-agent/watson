@@ -93,33 +93,6 @@ export function loadConfig(workspacePath: string): Config {
     })
   }
 
-  // 4. Try openclaw config as last resort
-  try {
-    const openclawConfigPath = join(process.env.HOME || '', '.openclaw', 'openclaw.json')
-    if (existsSync(openclawConfigPath)) {
-      const content = readFileSync(openclawConfigPath, 'utf8')
-      const openclawConfig = JSON.parse(content)
-      const providers = openclawConfig?.providers
-      if (providers) {
-        // Find first provider with an API key
-        for (const [name, providerConfig] of Object.entries(providers) as any) {
-          if (providerConfig.apiKey) {
-            const api = providerConfig.api || ''
-            const isAnthropic = api.includes('anthropic') || name.includes('anthropic')
-            const firstModel = providerConfig.models?.[0]
-            const modelId = typeof firstModel === 'object' ? firstModel.id : firstModel
-            return normalizeConfig({
-              provider: isAnthropic ? 'anthropic' : 'openai',
-              apiKey: providerConfig.apiKey,
-              baseUrl: providerConfig.baseUrl,
-              model: modelId || (isAnthropic ? 'claude-sonnet-4-20250514' : 'gpt-4')
-            })
-          }
-        }
-      }
-    }
-  } catch {}
-
   throw new Error(
     'No API key found. Create .watson/config.json or set ANTHROPIC_API_KEY environment variable.'
   )
