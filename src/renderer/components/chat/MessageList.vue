@@ -87,37 +87,21 @@ const streamingMsgId = computed(() => {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 16px 0;
+  padding: 20px 0 8px;
   scroll-behavior: smooth;
 }
 
-/* Constrain message width for readability */
 .message-list > * {
-  max-width: 860px;
+  max-width: 780px;
   margin-left: auto;
   margin-right: auto;
   width: 100%;
 }
 
-/* Scrollbar */
-.message-list::-webkit-scrollbar {
-  width: 6px;
-}
+.message-list::-webkit-scrollbar { width: 4px; }
+.message-list::-webkit-scrollbar-track { background: transparent; }
+.message-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+.message-list::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
 
-.message-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.message-list::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 3px;
-}
-
-.message-list::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
-}
-
-.scroll-anchor {
-  height: 1px;
-}
+.scroll-anchor { height: 1px; }
 </style>

@@ -78,41 +78,29 @@ const hasError = computed(() => props.tools.some(t => t.status === 'error'))
 
 <style scoped>
 .tool-group {
-  margin: 6px 0;
-  border-radius: 8px;
+  margin: 4px 0;
+  border-radius: var(--radius-md);
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   overflow: hidden;
-  transition: border-color 0.2s;
 }
 
-.tool-group.running {
-  border-color: var(--accent-color);
-  background: var(--tool-accent-bg);
-}
-
-.tool-group.has-error {
-  border-color: var(--error);
-  background: var(--error-bg);
-}
+.tool-group.running { border-color: var(--border-strong); }
+.tool-group.has-error { border-color: var(--error); background: var(--error-bg); }
 
 .tool-group-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 10px;
+  padding: 6px 10px;
   cursor: pointer;
-  font-size: 0.8125rem;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
   user-select: none;
-  transition: background 0.12s;
 }
+.tool-group-header:hover { background: var(--bg-tertiary); }
 
-.tool-group-header:hover {
-  background: var(--bg-hover, #ffffff08);
-}
-
-.tool-group-icon { font-size: 0.875rem; flex-shrink: 0; }
+.tool-group-icon { font-size: 0.8125rem; flex-shrink: 0; }
 
 .tool-group-text {
   flex: 1;
@@ -121,51 +109,31 @@ const hasError = computed(() => props.tools.some(t => t.status === 'error'))
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: 400;
 }
 
-.running .tool-group-text { color: var(--accent-color); }
 .has-error .tool-group-text { color: var(--error); }
 
 .tool-group-spinner {
-  width: 12px;
-  height: 12px;
-  border: 1.5px solid var(--accent-color);
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--text-tertiary);
   border-top-color: transparent;
   border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+  animation: spin 0.7s linear infinite;
   flex-shrink: 0;
 }
-
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .tool-status-icon {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: 0.6875rem;
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  opacity: 0.5;
 }
+.tool-status-icon.done { color: var(--success); opacity: 0.7; }
+.tool-status-icon.error { color: var(--error); opacity: 1; }
 
-.tool-status-icon.done {
-  color: var(--success, #4ac078);
-  background: var(--success-bg);
-}
-
-.tool-status-icon.error {
-  color: var(--error);
-  background: var(--error-bg);
-}
-
-.tool-group-chevron {
-  font-size: 0.625rem;
-  opacity: 0.4;
-  flex-shrink: 0;
-}
+.tool-group-chevron { font-size: 0.5625rem; opacity: 0.3; flex-shrink: 0; }
 
 .tool-group-body {
   border-top: 1px solid var(--border-color);

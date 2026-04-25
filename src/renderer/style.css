@@ -5,19 +5,12 @@
 }
 
 body {
-  /* Better font stack (not just system-ui) */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans, -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif);
   background: var(--bg-primary);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  
-  /* Better line height for readability */
   line-height: 1.6;
-  
-  /* Smooth transitions */
-  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #app {
@@ -25,24 +18,10 @@ body {
   height: 100vh;
 }
 
-/* Tactile button feedback (global) */
-button:active:not(:disabled) {
-  transform: scale(0.98);
-}
+button:active:not(:disabled) { transform: scale(0.97); }
+button { transition: transform 0.1s ease, background-color 0.12s ease, opacity 0.12s ease; }
 
-button {
-  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-              background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-              opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Smooth scrolling */
-* {
-  scroll-behavior: smooth;
-}
-
-/* Better focus outline */
 *:focus-visible {
-  outline: 2px solid var(--accent-color);
+  outline: 2px solid var(--border-strong);
   outline-offset: 2px;
 }

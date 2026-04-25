@@ -135,110 +135,91 @@ Settings
 
 <style scoped>
 .sidebar {
-  width: 260px;
+  width: 220px;
+  min-width: 220px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   height: 100vh;
+  -webkit-app-region: drag;
 }
 
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1rem;
-  border-bottom: 1px solid var(--border-color);
+  padding: 52px 14px 10px;
+  -webkit-app-region: drag;
 }
 
 .sidebar-header h2 {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   margin: 0;
+  -webkit-app-region: drag;
 }
 
 .add-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  font-size: 1.25rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 1.1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-fast) ease;
+  -webkit-app-region: no-drag;
+  line-height: 1;
 }
 
 .add-btn:hover {
-  background: var(--accent-color);
-  color: white;
-  border-color: var(--accent-color);
-  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.08);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .session-list {
   flex: 1;
   overflow-y: auto;
-  padding: 0.5rem;
-  padding-bottom: 2rem;
+  padding: 4px 8px 24px;
+  -webkit-app-region: no-drag;
 }
 
 .session-item {
   display: flex;
   align-items: center;
-  padding: 0.5rem 0.625rem;
-  border-radius: 8px;
+  padding: 6px 8px;
+  border-radius: 7px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  margin-bottom: 2px;
-  gap: 0.5rem;
-  border: 1px solid transparent;
+  transition: background var(--duration-fast) ease;
+  margin-bottom: 1px;
+  gap: 0.375rem;
   position: relative;
 }
 
-.session-item:hover {
-  background: var(--bg-primary);
-  border-color: var(--border-color);
-  box-shadow: var(--shadow-sm);
-}
+.session-item:hover { background: var(--bg-tertiary); }
+.session-item.active { background: var(--bg-primary); }
+.session-item.active .session-title { color: var(--text-primary); font-weight: 500; }
 
-.session-item:hover .session-chevron {
-  opacity: 1;
-}
-
-.session-item.active {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  box-shadow: none;
-}
-
-.session-item.active .session-title {
-  color: var(--accent-color);
-}
-
-.session-body {
-  flex: 1;
-  min-width: 0;
-}
+.session-body { flex: 1; min-width: 0; }
 
 .session-row-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.125rem;
 }
 
 .session-title {
-  font-weight: 500;
-  color: var(--text-primary);
-  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
   line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
@@ -249,108 +230,92 @@ Settings
 .rename-input {
   width: 100%;
   background: var(--bg-primary);
-  border: 1px solid var(--accent-color);
-  border-radius: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
   color: var(--text-primary);
-  font-size: 0.875rem;
-  padding: 2px 4px;
+  font-size: 0.8125rem;
+  padding: 1px 4px;
   font-family: inherit;
-}
-
-.rename-input:focus {
   outline: none;
 }
 
 .session-time {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  margin-left: 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+  margin-left: 4px;
+  flex-shrink: 0;
 }
 
 .unread-badge {
-  background: #4a9eff;
-  color: #fff;
-  font-size: 0.625rem;
-  font-weight: 700;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 5px;
-  margin-left: 0.375rem;
+  padding: 0 4px;
+  margin-left: 4px;
   flex-shrink: 0;
-  line-height: 1;
 }
 
 .session-subtitle {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.4;
   margin-top: 1px;
-  opacity: 0.7;
 }
 
-.session-chevron {
-  opacity: 0;
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  flex-shrink: 0;
-  transition: opacity 0.15s ease;
-  margin-left: auto;
-}
+.session-chevron { display: none; }
 
 .delete-btn {
-  width: 20px;
-  height: 20px;
-  border-radius: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
   background: transparent;
   border: none;
-  color: var(--text-secondary);
-  font-size: 1.25rem;
+  color: var(--text-tertiary);
+  font-size: 1rem;
   cursor: pointer;
   display: none;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
   flex-shrink: 0;
+  line-height: 1;
 }
 
-.session-item:hover .delete-btn {
-  display: flex;
-}
-
-.delete-btn:hover {
-  background: #3a1a1a;
-  color: #ff6b6b;
-}
+.session-item:hover .delete-btn { display: flex; }
+.delete-btn:hover { color: var(--error); }
 
 .sidebar-footer {
-  padding: 0.75rem;
+  padding: 8px;
   border-top: 1px solid var(--border-color);
+  -webkit-app-region: no-drag;
 }
 
 .settings-btn {
   width: 100%;
-  padding: 0.625rem 0.75rem;
+  padding: 7px 8px;
   background: transparent;
   border: none;
-  border-radius: 8px;
-  color: var(--text-secondary);
+  border-radius: 7px;
+  color: var(--text-tertiary);
   font-size: 0.8125rem;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--duration-fast) ease;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 6px;
 }
 
 .settings-btn:hover {
   background: var(--bg-tertiary);
-  color: var(--text-primary);
+  color: var(--text-secondary);
 }
 </style>

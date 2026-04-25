@@ -371,21 +371,19 @@ function fileTypeIcon(entry: AttachmentEntry): string {
 <style scoped>
 .chat-input-wrap {
   border-top: 1px solid var(--border-color);
-  background: var(--bg-secondary);
-  transition: border-color 0.15s;
+  background: var(--bg-primary);
 }
 
 .chat-input-wrap.drag-over {
-  border-color: var(--accent-color);
-  background: var(--accent-dim, #3b82f60a);
+  border-color: var(--border-strong);
+  background: var(--bg-secondary);
 }
 
-/* File previews */
 .file-previews {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 8px 12px 0;
+  padding: 8px 16px 0;
 }
 
 .file-preview {
@@ -393,115 +391,85 @@ function fileTypeIcon(entry: AttachmentEntry): string {
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  background: var(--bg-tertiary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
 }
 
-.file-thumb {
-  width: 24px;
-  height: 24px;
-  border-radius: 3px;
-  object-fit: cover;
-}
-
+.file-thumb { width: 20px; height: 20px; border-radius: 3px; object-fit: cover; }
 .file-icon { font-size: 0.875rem; }
 .file-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-size { opacity: 0.6; }
-
+.file-size { opacity: 0.5; }
 .file-remove {
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  padding: 0 2px;
-  font-size: 0.625rem;
+  background: none; border: none; color: var(--text-tertiary);
+  cursor: pointer; padding: 0 2px; font-size: 0.625rem;
 }
+.file-remove:hover { color: var(--error); }
 
-.file-remove:hover { color: var(--error, #ef4444); }
-
-/* Input bar */
 .chat-input {
   display: flex;
-  gap: 6px;
-  padding: 8px 12px;
+  gap: 4px;
+  padding: 10px 12px;
   align-items: flex-end;
 }
 
 .icon-btn {
-  padding: 6px;
-  min-width: 32px;
-  height: 32px;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.12s;
-  flex-shrink: 0;
-}
-
-.icon-btn:hover:not(:disabled) {
-  background: var(--bg-hover, #ffffff08);
-  color: var(--text-primary);
-}
-
-.icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-
-.capturing-dot {
-  color: var(--error, #ef4444);
-  animation: pulse 1s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
-}
-
-textarea {
-  flex: 1;
-  padding: 6px 10px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 0.9rem;
-  resize: none;
-  min-height: 36px;
-  max-height: 200px;
-  line-height: 1.5;
-  overflow-y: auto;
-}
-
-textarea:focus { outline: none; }
-
-textarea:disabled { opacity: 0.5; }
-
-.send-btn {
-  padding: 6px;
-  min-width: 32px;
-  height: 32px;
+  padding: 5px;
+  min-width: 28px;
+  height: 28px;
   background: transparent;
   border: none;
   color: var(--text-tertiary);
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s;
+  transition: color var(--duration-fast), background var(--duration-fast);
   flex-shrink: 0;
 }
+.icon-btn:hover:not(:disabled) { color: var(--text-secondary); background: var(--bg-secondary); }
+.icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-.send-btn.active {
-  background: var(--accent-color);
-  color: #fff;
+.capturing-dot { color: var(--error); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+textarea {
+  flex: 1;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  resize: none;
+  min-height: 32px;
+  max-height: 200px;
+  line-height: 1.55;
+  overflow-y: auto;
 }
+textarea::placeholder { color: var(--text-tertiary); }
+textarea:focus { outline: none; }
+textarea:disabled { opacity: 0.4; }
 
+.send-btn {
+  padding: 5px;
+  min-width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast);
+  flex-shrink: 0;
+}
+.send-btn.active { background: var(--text-primary); color: var(--bg-primary); }
 .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 </style>
