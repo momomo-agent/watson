@@ -35,12 +35,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "agentic": "file:../agentic/packages/agentic",
-    "agentic-claw": "file:../agentic/packages/claw",
-    "agentic-core": "file:../agentic/packages/core",
-    "agentic-memory": "file:../agentic/packages/memory",
     "better-sqlite3": "^12.8.0",
     "chokidar": "^5.0.0",
-    "agentic-conductor": "link:../../agentic/packages/conductor",
     "highlight.js": "^11.11.1",
     "https-proxy-agent": "^9.0.0",
     "js-yaml": "^4.1.1",

@@ -14,18 +14,6 @@ importers:
       agentic:
         specifier: file:../agentic/packages/agentic
         version: file:../agentic/packages/agentic
-      agentic-claw:
-        specifier: file:../agentic/packages/claw
-        version: file:../agentic/packages/claw
-      agentic-conductor:
-        specifier: link:../../agentic/packages/conductor
-        version: link:../../agentic/packages/conductor
-      agentic-core:
-        specifier: file:../agentic/packages/core
-        version: file:../agentic/packages/core
-      agentic-memory:
-        specifier: file:../agentic/packages/memory
-        version: file:../agentic/packages/memory
       better-sqlite3:
         specifier: ^12.8.0
         version: 12.8.0
@@ -719,14 +707,47 @@ packages:
     resolution: {integrity: sha512-TQf59BsZnytt8GdJKLPfUZ54g/iaUL2OWDSFCCvMOhsHduDQxO8xC4PNeyIkVcA5KwL2phPSv0douC0fgWzmnA==}
     engines: {node: '>= 20'}
 
+  agentic-act@file:../agentic/packages/act:
+    resolution: {directory: ../agentic/packages/act, type: directory}
+
   agentic-claw@file:../agentic/packages/claw:
     resolution: {directory: ../agentic/packages/claw, type: directory}
+
+  agentic-client@file:../agentic/packages/client:
+    resolution: {directory: ../agentic/packages/client, type: directory}
+
+  agentic-conductor@file:../agentic/packages/conductor:
+    resolution: {directory: ../agentic/packages/conductor, type: directory}
 
   agentic-core@file:../agentic/packages/core:
     resolution: {directory: ../agentic/packages/core, type: directory}
 
+  agentic-embed@file:../agentic/packages/embed:
+    resolution: {directory: ../agentic/packages/embed, type: directory}
+
+  agentic-filesystem@file:../agentic/packages/filesystem:
+    resolution: {directory: ../agentic/packages/filesystem, type: directory}
+
   agentic-memory@file:../agentic/packages/memory:
     resolution: {directory: ../agentic/packages/memory, type: directory}
+
+  agentic-render@file:../agentic/packages/render:
+    resolution: {directory: ../agentic/packages/render, type: directory}
+
+  agentic-sense@file:../agentic/packages/sense:
+    resolution: {directory: ../agentic/packages/sense, type: directory}
+
+  agentic-shell@file:../agentic/packages/shell:
+    resolution: {directory: ../agentic/packages/shell, type: directory}
+
+  agentic-spatial@file:../agentic/packages/spatial:
+    resolution: {directory: ../agentic/packages/spatial, type: directory}
+
+  agentic-store@file:../agentic/packages/store:
+    resolution: {directory: ../agentic/packages/store, type: directory}
+
+  agentic-voice@file:../agentic/packages/voice:
+    resolution: {directory: ../agentic/packages/voice, type: directory}
 
   agentic@file:../agentic/packages/agentic:
     resolution: {directory: ../agentic/packages/agentic, type: directory}
@@ -3382,13 +3403,52 @@ snapshots:
 
   agent-base@9.0.0: {}
 
+  agentic-act@file:../agentic/packages/act: {}
+
   agentic-claw@file:../agentic/packages/claw: {}
+
+  agentic-client@file:../agentic/packages/client: {}
+
+  agentic-conductor@file:../agentic/packages/conductor: {}
 
   agentic-core@file:../agentic/packages/core: {}
 
+  agentic-embed@file:../agentic/packages/embed: {}
+
+  agentic-filesystem@file:../agentic/packages/filesystem: {}
+
   agentic-memory@file:../agentic/packages/memory: {}
 
-  agentic@file:../agentic/packages/agentic: {}
+  agentic-render@file:../agentic/packages/render: {}
+
+  agentic-sense@file:../agentic/packages/sense: {}
+
+  agentic-shell@file:../agentic/packages/shell:
+    dependencies:
+      agentic-filesystem: file:../agentic/packages/filesystem
+
+  agentic-spatial@file:../agentic/packages/spatial: {}
+
+  agentic-store@file:../agentic/packages/store: {}
+
+  agentic-voice@file:../agentic/packages/voice: {}
+
+  agentic@file:../agentic/packages/agentic:
+    dependencies:
+      agentic-act: file:../agentic/packages/act
+      agentic-claw: file:../agentic/packages/claw
+      agentic-client: file:../agentic/packages/client
+      agentic-conductor: file:../agentic/packages/conductor
+      agentic-core: file:../agentic/packages/core
+      agentic-embed: file:../agentic/packages/embed
+      agentic-filesystem: file:../agentic/packages/filesystem
+      agentic-memory: file:../agentic/packages/memory
+      agentic-render: file:../agentic/packages/render
+      agentic-sense: file:../agentic/packages/sense
+      agentic-shell: file:../agentic/packages/shell
+      agentic-spatial: file:../agentic/packages/spatial
+      agentic-store: file:../agentic/packages/store
+      agentic-voice: file:../agentic/packages/voice
 
   agentkeepalive@4.6.0:
     dependencies:

@@ -9,26 +9,6 @@ try {
   setGlobalDispatcher(new ProxyAgent(proxy))
 } catch {}
 
-// Inject agentic-conductor into globalThis so claw's optionalLoad finds it
-// (pnpm strict mode prevents require('agentic-conductor') from agentic's context)
-try {
-  let conductorMod: any = null
-  const tryPaths = [
-    '/Users/kenefe/LOCAL/momo-agent/projects/agentic/packages/conductor/dist/agentic-conductor.cjs',
-    require('path').resolve(process.cwd(), 'node_modules/agentic-conductor/dist/agentic-conductor.cjs'),
-  ]
-  for (const p of tryPaths) {
-    try { conductorMod = require(p); break } catch {}
-  }
-  if (conductorMod) {
-    ;(globalThis as any).AgenticConductor = conductorMod
-    console.log('[watson] agentic-conductor loaded')
-  } else {
-    console.warn('[watson] agentic-conductor not found')
-  }
-} catch (e) {
-  console.warn('[watson] agentic-conductor injection failed:', (e as any).message)
-}
 import { join } from 'path'
 import { registerChatHandlers, getWorkspaceManager } from './application/chat-handlers'
 import { registerWorkspaceHandlers } from './application/workspace-handlers'
